@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ewb-cache-v1';
+const CACHE_NAME = 'ewb-cache-v2';
 const urlsToCache = [
   '/',
   '/index.html',
