@@ -67,6 +67,45 @@ void application_onStreamStop() {
   //streamStartTimeMs = 0;
 }
 
+/**
+ * @brief Simula um sinal de photogate com pulsos de duração controlada
+ * @param upP Probabilidade de transição (0.0 a 1.0) - controla frequência de pulsos
+ * @param lowL Valor do nível baixo (tipicamente 0-500)
+ * @param highL Valor do nível alto (tipicamente 3500-4095)
+ * @param noise Amplitude máxima do ruído a ser adicionado
+ * @param pulseDuration Duração aproximada do pulso em ms
+ * @return uint16_t Valor simulado do sensor (0-4095)
+ */
+uint16_t simGate(float upP, uint16_t lowL, uint16_t highL, uint16_t noise, uint16_t pulseDuration) {
+  int level;
+  
+  // Usa o tempo atual como base para criar "regiões" de estado
+  uint32_t currentTime = millis();
+  uint32_t timeBlock = currentTime / pulseDuration;
+  
+  // Gera um "estado" pseudo-aleatório baseado no bloco de tempo
+  // Usando uma operação de hash simples para tornar imprevisível
+  uint32_t seed = timeBlock * 1103515245 + 12345;  // Linear congruential generator
+  float pseudoRandom = (seed % 10000) / 10000.0;
+  
+  // Decide o nível base para este bloco de tempo
+  if (pseudoRandom < upP) {
+    level = highL;
+  } else {
+    level = lowL;
+  }
+  
+  // Adiciona ruído aleatório (positivo ou negativo)
+  if (noise > 0) {
+    int noiseValue = random(noise * 2) - noise;
+    level += noiseValue;
+  }
+  
+  // Limita ao range válido do ADC (12-bit)
+  level = constrain(level, 0, 4095);
+  
+  return (uint16_t)level;
+}
 
 // --- Funções Setup e Loop ---
 
@@ -99,14 +138,23 @@ void setup() {
 }
 
 void loop() {
-  if (isAppStreaming && ewbServer.isClientConnected()) {
-    // 1. Lê os sensores
-    uint16_t val1 = analogRead(ANALOG_PIN_1);
+  if (isAppStreaming && ewbServer.isClientConnected()) {    
+
+    // 1. Simula os sensores (comente para usar sensores reais)
+    uint16_t val1 = simGate(0.3, 100, 2000, 50, 300);   // 30% do tempo em alto, pulsos de 100ms
+    uint16_t val2 = simGate(0.2, 80, 3950, 40, 150);    // 20% do tempo em alto, pulsos de 150ms
+    uint16_t val3 = simGate(0.25, 120, 3800, 60, 120);  
+    uint16_t val4 = simGate(0.15, 90, 1500, 45, 450);   
+    uint16_t val5 = simGate(0.35, 110, 3850, 55, 80);   
+    uint16_t val6 = simGate(0.1, 70, 200, 35, 250); 
+   
+    // 1. Lê os sensores reais
+    /*uint16_t val1 = analogRead(ANALOG_PIN_1);
     uint16_t val2 = analogRead(ANALOG_PIN_2);
     uint16_t val3 = analogRead(ANALOG_PIN_3);
     uint16_t val4 = analogRead(ANALOG_PIN_4);
     uint16_t val5 = analogRead(ANALOG_PIN_5);
-    uint16_t val6 = analogRead(ANALOG_PIN_6);
+    uint16_t val6 = analogRead(ANALOG_PIN_6);*/
 
     // 2. Obtém o timestamp
     uint32_t currentTimeMs = millis() - streamStartTimeMs;
