@@ -164,12 +164,18 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderChart() {
         const ctx = document.getElementById('main-chart').getContext('2d');
         const datasets = [];
+        
+        // Pega o fator de decimação
+        const decimation = parseInt(inputDataDecimation.value, 10) || 1;
+        
+        // Filtra os dados aplicando decimação
+        const decimatedReadings = allReadings.filter((_, index) => index % decimation === 0);
 
         for(let i = 0; i < NUM_CHANNELS; i++) {
             if(toggleStates.channels[i]) {
                 datasets.push({
                     label: `Canal ${i+1}`,
-                    data: allReadings.map(d => ({ x: d.time_ms, y: d[`reading${i+1}`] })),
+                    data: decimatedReadings.map(d => ({ x: d.time_ms, y: d[`reading${i+1}`] })),
                     borderColor: CHANNEL_COLORS[i],
                     backgroundColor: CHANNEL_COLORS[i],
                     borderWidth: parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--line-thickness')),
@@ -190,6 +196,9 @@ document.addEventListener('DOMContentLoaded', () => {
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                animation: false, // Desabilita animações
+                parsing: false,   // Dados já estão no formato correto
+                normalized: true, // Otimiza para dados ordenados
                 scales: {
                     x: {
                         type: 'linear',
@@ -202,6 +211,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 },
                 plugins: {
+                    decimation: {  // Decimação nativa do Chart.js (adicional)
+                        enabled: true,
+                        algorithm: 'lttb' // Preserva formato visual
+                    },
                     zoom: {
                         pan: { enabled: true, mode: 'xy' },
                         zoom: { wheel: { enabled: true }, pinch: { enabled: true }, mode: 'xy' }
@@ -287,6 +300,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const curr = allReadings[i];
 
             for (let ch = 0; ch < NUM_CHANNELS; ch++) {
+                if (!toggleStates.channels[ch]) continue; // Pula o canal se ele não estiver ativado
+
                 const trigger = triggerLevels[ch];
                 const prevVal = prev[`reading${ch+1}`];
                 const currVal = curr[`reading${ch+1}`];
@@ -516,6 +531,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     inputSamplesPerChunk.addEventListener('change', (e) => sendAdvancedSetting('samples_per_chunk', parseInt(e.target.value, 10)));
     inputSampleIntervalUs.addEventListener('change', (e) => sendAdvancedSetting('sample_interval_us', parseInt(e.target.value, 10)));
+    const inputDataDecimation = document.getElementById('data-decimation');
+    inputDataDecimation.addEventListener('input', (e) => {
+        document.getElementById('decimation-value').textContent = e.target.value;
+        if (!isStreaming && allReadings.length > 0) {
+            renderChart(); // Re-renderiza com nova decimação
+        }
+    });
     
     // Inicialização da UI
     switchPage('conexao');
