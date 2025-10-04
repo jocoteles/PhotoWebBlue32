@@ -8,7 +8,7 @@
 #include "EWBServer.h"
 
 // --- Configuração do Dispositivo ---
-const char* DEVICE_NAME = "ESP32_PWB_Control";
+const char* DEVICE_NAME = "Photogate32_1";
 
 // --- Instância do Servidor ---
 EWBServer ewbServer;

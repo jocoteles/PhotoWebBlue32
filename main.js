@@ -20,6 +20,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     let isZeroOrigin = false;
     let showEventsOnGraph = false;
+    let groupEvents = false;
 
     // --- Elementos da UI ---
     // Navegação
@@ -50,6 +51,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const saveControls = document.getElementById('save-controls');
     const btnZeroOrigin = document.getElementById('btn-zero-origin');
     const btnShowEvents = document.getElementById('btn-show-events');
+    const btnGroupEvents = document.getElementById('btn-group-events');
 
     // Salvar
     const btnCopyTimes = document.getElementById('btn-copy-times');
@@ -114,9 +116,7 @@ document.addEventListener('DOMContentLoaded', () => {
         btnTriggerReading.classList.add('reading');
         channelsFieldset.disabled = true;
 
-        btnShowEvents.classList.remove('enabled');
-        showEventsOnGraph = false;
-
+        
         // 2. Apenas inicia o stream. O callback já foi configurado uma vez na conexão.
         ewbClient.startStream(); 
 
@@ -165,10 +165,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const ctx = document.getElementById('main-chart').getContext('2d');
         const datasets = [];
         
-        // Pega o fator de decimação
         const decimation = parseInt(inputDataDecimation.value, 10) || 1;
-        
-        // Filtra os dados aplicando decimação
         const decimatedReadings = allReadings.filter((_, index) => index % decimation === 0);
 
         for(let i = 0; i < NUM_CHANNELS; i++) {
@@ -196,9 +193,9 @@ document.addEventListener('DOMContentLoaded', () => {
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                animation: false, // Desabilita animações
-                parsing: false,   // Dados já estão no formato correto
-                normalized: true, // Otimiza para dados ordenados
+                animation: false,
+                parsing: false,
+                normalized: true,
                 scales: {
                     x: {
                         type: 'linear',
@@ -211,9 +208,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 },
                 plugins: {
-                    decimation: {  // Decimação nativa do Chart.js (adicional)
+                    decimation: {
                         enabled: true,
-                        algorithm: 'lttb' // Preserva formato visual
+                        algorithm: 'lttb'
                     },
                     zoom: {
                         pan: { enabled: true, mode: 'xy' },
@@ -233,14 +230,12 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                     }
                     chartInstance.options.plugins.annotation.annotations = buildAnnotations();
-                    chartInstance.update('none'); // 'none' para evitar reanimação
+                    chartInstance.update('none');
                     rebuildTimeTable();
                 }
             }
         });
         
-        // Força o plugin de zoom a recalcular a visão inicial com base nos novos dados,
-        // ignorando qualquer estado de zoom/pan de uma renderização anterior.
         chartInstance.resetZoom();
     }
     
@@ -268,24 +263,78 @@ document.addEventListener('DOMContentLoaded', () => {
         
         if(showEventsOnGraph) {
             const events = findEvents();
-            events.forEach((event, index) => {
-                 annotations[`event${index}`] = {
-                    type: 'point',
-                    xValue: event.time,
-                    yValue: triggerLevels[event.channel - 1],
-                    backgroundColor: CHANNEL_COLORS[event.channel - 1],
-                    radius: parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--event-radius'))
-                };
-                annotations[`eventLabel${index}`] = {
-                     type: 'label',
-                     xValue: event.time,
-                     yValue: triggerLevels[event.channel - 1],
-                     content: (index + 1).toString(),
-                     font: { size: 10 },
-                     color: 'black',
-                     yAdjust: -10
-                };
-            });
+            
+            if (groupEvents) {
+                let eventNumber = 1;
+                let i = 0;
+                
+                while (i < events.length) {
+                    let currentEvent = events[i];
+                    
+                    annotations[`event${i}`] = {
+                        type: 'point',
+                        xValue: currentEvent.time,
+                        yValue: triggerLevels[currentEvent.channel - 1],
+                        backgroundColor: CHANNEL_COLORS[currentEvent.channel - 1],
+                        radius: parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--event-radius'))
+                    };
+                    annotations[`eventLabel${i}`] = {
+                        type: 'label',
+                        xValue: currentEvent.time,
+                        yValue: triggerLevels[currentEvent.channel - 1],
+                        content: eventNumber.toString(),
+                        font: { size: 10 },
+                        color: 'black',
+                        yAdjust: -10
+                    };
+                    
+                    if (i + 1 < events.length) {
+                        let nextEvent = events[i + 1];
+                        if (currentEvent.channel === nextEvent.channel &&
+                            currentEvent.type !== nextEvent.type) {
+                            i++;
+                            annotations[`event${i}`] = {
+                                type: 'point',
+                                xValue: nextEvent.time,
+                                yValue: triggerLevels[nextEvent.channel - 1],
+                                backgroundColor: CHANNEL_COLORS[nextEvent.channel - 1],
+                                radius: parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--event-radius'))
+                            };
+                            annotations[`eventLabel${i}`] = {
+                                type: 'label',
+                                xValue: nextEvent.time,
+                                yValue: triggerLevels[nextEvent.channel - 1],
+                                content: eventNumber.toString(),
+                                font: { size: 10 },
+                                color: 'black',
+                                yAdjust: -10
+                            };
+                        }
+                    }
+                    
+                    eventNumber++;
+                    i++;
+                }
+            } else {
+                events.forEach((event, index) => {
+                    annotations[`event${index}`] = {
+                        type: 'point',
+                        xValue: event.time,
+                        yValue: triggerLevels[event.channel - 1],
+                        backgroundColor: CHANNEL_COLORS[event.channel - 1],
+                        radius: parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--event-radius'))
+                    };
+                    annotations[`eventLabel${index}`] = {
+                        type: 'label',
+                        xValue: event.time,
+                        yValue: triggerLevels[event.channel - 1],
+                        content: (index + 1).toString(),
+                        font: { size: 10 },
+                        color: 'black',
+                        yAdjust: -10
+                    };
+                });
+            }
         }
         
         return annotations;
@@ -300,7 +349,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const curr = allReadings[i];
 
             for (let ch = 0; ch < NUM_CHANNELS; ch++) {
-                if (!toggleStates.channels[ch]) continue; // Pula o canal se ele não estiver ativado
+                if (!toggleStates.channels[ch]) continue;
 
                 const trigger = triggerLevels[ch];
                 const prevVal = prev[`reading${ch+1}`];
@@ -316,15 +365,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         events.sort((a, b) => a.time - b.time);
-        
-        if (isZeroOrigin && events.length > 0) {
-            const t0 = events[0].time;
-            events.forEach(e => e.time -= t0);
-        }
-
         return events;
     }
-
+        
     function rebuildTimeTable() {
         const events = findEvents();
         
@@ -333,20 +376,88 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        // Calcula o offset APENAS para a tabela
+        const timeOffset = (isZeroOrigin && events.length > 0) ? events[0].time : 0;
+
         let tableHTML = '';
-        events.forEach((event, index) => {
-            const subida = event.type === 'subida' ? event.time.toFixed(2) : '';
-            const descida = event.type === 'descida' ? event.time.toFixed(2) : '';
-            tableHTML += `<tr>
-                <td>${index + 1}</td>
-                <td style="color:${CHANNEL_COLORS[event.channel-1]}"><b>${event.channel}</b></td>
-                <td>${subida}</td>
-                <td>${descida}</td>
-            </tr>`;
-        });
+        
+        if (groupEvents) {
+            // Separa eventos por canal para facilitar o agrupamento
+            let eventsByChannel = {};
+            for (let ch = 1; ch <= NUM_CHANNELS; ch++) {
+                eventsByChannel[ch] = [];
+            }
+            
+            events.forEach(event => {
+                eventsByChannel[event.channel].push(event);
+            });
+            
+            // Agrupa subidas e descidas dentro de cada canal
+            let groupedEvents = [];
+            
+            for (let ch = 1; ch <= NUM_CHANNELS; ch++) {
+                let channelEvents = eventsByChannel[ch];
+                let i = 0;
+                
+                while (i < channelEvents.length) {
+                    let currentEvent = channelEvents[i];
+                    
+                    // Procura o par (subida/descida ou descida/subida)
+                    if (i + 1 < channelEvents.length) {
+                        let nextEvent = channelEvents[i + 1];
+                        if (currentEvent.type !== nextEvent.type) {
+                            // Encontrou um par
+                            groupedEvents.push({
+                                channel: ch,
+                                time: Math.min(currentEvent.time, nextEvent.time), // Usa o menor tempo para ordenação
+                                rising: currentEvent.type === 'subida' ? currentEvent.time - timeOffset : nextEvent.time - timeOffset,
+                                falling: currentEvent.type === 'descida' ? currentEvent.time - timeOffset : nextEvent.time - timeOffset
+                            });
+                            i += 2; // Pula ambos
+                            continue;
+                        }
+                    }
+                    
+                    // Evento isolado
+                    groupedEvents.push({
+                        channel: ch,
+                        time: currentEvent.time, // Para ordenação
+                        rising: currentEvent.type === 'subida' ? currentEvent.time - timeOffset : null,
+                        falling: currentEvent.type === 'descida' ? currentEvent.time - timeOffset : null
+                    });
+                    i++;
+                }
+            }
+            
+            // Ordena os grupos pelo tempo do primeiro evento de cada grupo
+            groupedEvents.sort((a, b) => a.time - b.time);
+            
+            groupedEvents.forEach((group, index) => {
+                const risingStr = group.rising !== null ? Math.round(group.rising) : '';
+                const fallingStr = group.falling !== null ? Math.round(group.falling) : '';
+                tableHTML += `<tr>
+                    <td>${index + 1}</td>
+                    <td style="color:${CHANNEL_COLORS[group.channel-1]}"><b>${group.channel}</b></td>
+                    <td>${risingStr}</td>
+                    <td>${fallingStr}</td>
+                </tr>`;
+            });
+        } else {
+            events.forEach((event, index) => {
+                const adjustedTime = event.time - timeOffset;
+                const subida = event.type === 'subida' ? Math.round(adjustedTime) : '';
+                const descida = event.type === 'descida' ? Math.round(adjustedTime) : '';
+                tableHTML += `<tr>
+                    <td>${index + 1}</td>
+                    <td style="color:${CHANNEL_COLORS[event.channel-1]}"><b>${event.channel}</b></td>
+                    <td>${subida}</td>
+                    <td>${descida}</td>
+                </tr>`;
+            });
+        }
+        
         eventsTableBody.innerHTML = tableHTML;
     }
-
     function generateCSV(isForGraph) {
         if (isForGraph) {
             if (allReadings.length === 0) return '';
@@ -416,13 +527,26 @@ document.addEventListener('DOMContentLoaded', () => {
     btnZeroOrigin.addEventListener('click', () => {
         isZeroOrigin = !isZeroOrigin;
         btnZeroOrigin.classList.toggle('enabled', isZeroOrigin);
+        btnZeroOrigin.textContent = isZeroOrigin ? 'Restaurar tempo original' : 'Zerar origem temporal';
         rebuildTimeTable();
     });
-    
+
     btnShowEvents.addEventListener('click', () => {
         showEventsOnGraph = !showEventsOnGraph;
         btnShowEvents.classList.toggle('enabled', showEventsOnGraph);
+        btnShowEvents.textContent = showEventsOnGraph ? 'Ocultar eventos no gráfico' : 'Mostrar eventos no gráfico';
         if(chartInstance) {
+            chartInstance.options.plugins.annotation.annotations = buildAnnotations();
+            chartInstance.update('none');
+        }
+    });
+
+    btnGroupEvents.addEventListener('click', () => {
+        groupEvents = !groupEvents;
+        btnGroupEvents.classList.toggle('enabled', groupEvents);
+        btnGroupEvents.textContent = groupEvents ? 'Separar subida/descida' : 'Juntar subida/descida';
+        rebuildTimeTable();
+        if(showEventsOnGraph && chartInstance) {
             chartInstance.options.plugins.annotation.annotations = buildAnnotations();
             chartInstance.update('none');
         }
