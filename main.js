@@ -9,7 +9,14 @@ document.addEventListener('DOMContentLoaded', () => {
     let chartInstance = null;
     
     const NUM_CHANNELS = 6;
-    const CHANNEL_COLORS = ['#e74c3c', '#f39c12', '#f1c40f', '#2ecc71', '#3498db', '#9b59b6'];
+    const CHANNEL_COLORS = [
+        '#e91700',
+        '#ff9d00',
+        '#b0b305ff',
+        '#04c755',
+        '#0210d6',
+        '#8601bb',
+    ];
     const DEFAULT_TRIGGER = 2048;
 
     let triggerLevels = Array(NUM_CHANNELS).fill(DEFAULT_TRIGGER);
@@ -239,107 +246,6 @@ document.addEventListener('DOMContentLoaded', () => {
         chartInstance.resetZoom();
     }
     
-    function buildAnnotations() {
-        const annotations = {};
-        
-        for(let i = 0; i < NUM_CHANNELS; i++) {
-            if (toggleStates.channels[i]) {
-                annotations[`trigger${i+1}`] = {
-                    type: 'line',
-                    yMin: triggerLevels[i],
-                    yMax: triggerLevels[i],
-                    borderColor: CHANNEL_COLORS[i],
-                    borderWidth: parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--trigger-thickness')),
-                    borderDash: [6, 6],
-                    label: {
-                        content: `T${i+1}`,
-                        enabled: true,
-                        position: 'start',
-                        backgroundColor: 'rgba(0,0,0,0.6)'
-                    }
-                };
-            }
-        }
-        
-        if(showEventsOnGraph) {
-            const events = findEvents();
-            
-            if (groupEvents) {
-                let eventNumber = 1;
-                let i = 0;
-                
-                while (i < events.length) {
-                    let currentEvent = events[i];
-                    
-                    annotations[`event${i}`] = {
-                        type: 'point',
-                        xValue: currentEvent.time,
-                        yValue: triggerLevels[currentEvent.channel - 1],
-                        backgroundColor: CHANNEL_COLORS[currentEvent.channel - 1],
-                        radius: parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--event-radius'))
-                    };
-                    annotations[`eventLabel${i}`] = {
-                        type: 'label',
-                        xValue: currentEvent.time,
-                        yValue: triggerLevels[currentEvent.channel - 1],
-                        content: eventNumber.toString(),
-                        font: { size: 10 },
-                        color: 'black',
-                        yAdjust: -10
-                    };
-                    
-                    if (i + 1 < events.length) {
-                        let nextEvent = events[i + 1];
-                        if (currentEvent.channel === nextEvent.channel &&
-                            currentEvent.type !== nextEvent.type) {
-                            i++;
-                            annotations[`event${i}`] = {
-                                type: 'point',
-                                xValue: nextEvent.time,
-                                yValue: triggerLevels[nextEvent.channel - 1],
-                                backgroundColor: CHANNEL_COLORS[nextEvent.channel - 1],
-                                radius: parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--event-radius'))
-                            };
-                            annotations[`eventLabel${i}`] = {
-                                type: 'label',
-                                xValue: nextEvent.time,
-                                yValue: triggerLevels[nextEvent.channel - 1],
-                                content: eventNumber.toString(),
-                                font: { size: 10 },
-                                color: 'black',
-                                yAdjust: -10
-                            };
-                        }
-                    }
-                    
-                    eventNumber++;
-                    i++;
-                }
-            } else {
-                events.forEach((event, index) => {
-                    annotations[`event${index}`] = {
-                        type: 'point',
-                        xValue: event.time,
-                        yValue: triggerLevels[event.channel - 1],
-                        backgroundColor: CHANNEL_COLORS[event.channel - 1],
-                        radius: parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--event-radius'))
-                    };
-                    annotations[`eventLabel${index}`] = {
-                        type: 'label',
-                        xValue: event.time,
-                        yValue: triggerLevels[event.channel - 1],
-                        content: (index + 1).toString(),
-                        font: { size: 10 },
-                        color: 'black',
-                        yAdjust: -10
-                    };
-                });
-            }
-        }
-        
-        return annotations;
-    }
-
     function findEvents() {
         if (allReadings.length < 2) return [];
 
@@ -367,7 +273,126 @@ document.addEventListener('DOMContentLoaded', () => {
         events.sort((a, b) => a.time - b.time);
         return events;
     }
+    
+    function getGroupedEvents(events) {
+        let eventsByChannel = {};
+        for (let ch = 1; ch <= NUM_CHANNELS; ch++) {
+            eventsByChannel[ch] = [];
+        }
         
+        events.forEach(event => {
+            eventsByChannel[event.channel].push(event);
+        });
+        
+        let groupedEvents = [];
+        for (let ch = 1; ch <= NUM_CHANNELS; ch++) {
+            let channelEvents = eventsByChannel[ch];
+            let i = 0;
+            
+            while (i < channelEvents.length) {
+                let currentEvent = channelEvents[i];
+                
+                if (i + 1 < channelEvents.length) {
+                    let nextEvent = channelEvents[i + 1];
+                    if (currentEvent.type !== nextEvent.type) {
+                        groupedEvents.push({
+                            channel: ch,
+                            time: Math.min(currentEvent.time, nextEvent.time),
+                            events: [currentEvent, nextEvent] // Armazena os dois eventos do par
+                        });
+                        i += 2;
+                        continue;
+                    }
+                }
+                
+                groupedEvents.push({
+                    channel: ch,
+                    time: currentEvent.time,
+                    events: [currentEvent] // Evento isolado
+                });
+                i++;
+            }
+        }
+        
+        groupedEvents.sort((a, b) => a.time - b.time);
+        return groupedEvents;
+    }
+
+    function buildAnnotations() {
+        const annotations = {};
+        
+        for(let i = 0; i < NUM_CHANNELS; i++) {
+            if (toggleStates.channels[i]) {
+                annotations[`trigger${i+1}`] = {
+                    type: 'line',
+                    yMin: triggerLevels[i],
+                    yMax: triggerLevels[i],
+                    borderColor: CHANNEL_COLORS[i],
+                    borderWidth: parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--trigger-thickness')),
+                    borderDash: [6, 6],
+                    label: {
+                        content: `T${i+1}`,
+                        enabled: true,
+                        position: 'start',
+                        backgroundColor: 'rgba(0,0,0,0.6)'
+                    }
+                };
+            }
+        }
+        
+        if(showEventsOnGraph) {
+            const events = findEvents();
+            
+            if (groupEvents) {
+                const groupedEvents = getGroupedEvents(events);
+
+                groupedEvents.forEach((group, groupIndex) => {
+                    group.events.forEach(event => {
+                        const uniqueId = `group_${groupIndex}_event_${event.time}`;
+                        annotations[`event_${uniqueId}`] = {
+                            type: 'point',
+                            xValue: event.time,
+                            yValue: triggerLevels[event.channel - 1],
+                            backgroundColor: CHANNEL_COLORS[event.channel - 1],
+                            radius: parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--event-radius'))
+                        };
+                        annotations[`eventLabel_${uniqueId}`] = {
+                            type: 'label',
+                            xValue: event.time,
+                            yValue: triggerLevels[event.channel - 1],
+                            content: (groupIndex + 1).toString(),
+                            font: { size: 10 },
+                            color: 'black',
+                            yAdjust: -10
+                        };
+                    });
+                });
+
+            } else {
+                events.forEach((event, index) => {
+                    annotations[`event${index}`] = {
+                        type: 'point',
+                        xValue: event.time,
+                        yValue: triggerLevels[event.channel - 1],
+                        backgroundColor: CHANNEL_COLORS[event.channel - 1],
+                        radius: parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--event-radius'))
+                    };
+                    annotations[`eventLabel${index}`] = {
+                        type: 'label',
+                        xValue: event.time,
+                        yValue: triggerLevels[event.channel - 1],
+                        content: (index + 1).toString(),
+                        font: { size: 10 },
+                        color: 'black',
+                        yAdjust: -10
+                    };
+                });
+            }
+        }
+        
+        return annotations;
+    }
+
     function rebuildTimeTable() {
         const events = findEvents();
         
@@ -376,65 +401,28 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // Calcula o offset APENAS para a tabela
         const timeOffset = (isZeroOrigin && events.length > 0) ? events[0].time : 0;
 
         let tableHTML = '';
         
         if (groupEvents) {
-            // Separa eventos por canal para facilitar o agrupamento
-            let eventsByChannel = {};
-            for (let ch = 1; ch <= NUM_CHANNELS; ch++) {
-                eventsByChannel[ch] = [];
-            }
-            
-            events.forEach(event => {
-                eventsByChannel[event.channel].push(event);
-            });
-            
-            // Agrupa subidas e descidas dentro de cada canal
-            let groupedEvents = [];
-            
-            for (let ch = 1; ch <= NUM_CHANNELS; ch++) {
-                let channelEvents = eventsByChannel[ch];
-                let i = 0;
-                
-                while (i < channelEvents.length) {
-                    let currentEvent = channelEvents[i];
-                    
-                    // Procura o par (subida/descida ou descida/subida)
-                    if (i + 1 < channelEvents.length) {
-                        let nextEvent = channelEvents[i + 1];
-                        if (currentEvent.type !== nextEvent.type) {
-                            // Encontrou um par
-                            groupedEvents.push({
-                                channel: ch,
-                                time: Math.min(currentEvent.time, nextEvent.time), // Usa o menor tempo para ordenação
-                                rising: currentEvent.type === 'subida' ? currentEvent.time - timeOffset : nextEvent.time - timeOffset,
-                                falling: currentEvent.type === 'descida' ? currentEvent.time - timeOffset : nextEvent.time - timeOffset
-                            });
-                            i += 2; // Pula ambos
-                            continue;
-                        }
-                    }
-                    
-                    // Evento isolado
-                    groupedEvents.push({
-                        channel: ch,
-                        time: currentEvent.time, // Para ordenação
-                        rising: currentEvent.type === 'subida' ? currentEvent.time - timeOffset : null,
-                        falling: currentEvent.type === 'descida' ? currentEvent.time - timeOffset : null
-                    });
-                    i++;
-                }
-            }
-            
-            // Ordena os grupos pelo tempo do primeiro evento de cada grupo
-            groupedEvents.sort((a, b) => a.time - b.time);
+            const groupedEvents = getGroupedEvents(events);
             
             groupedEvents.forEach((group, index) => {
-                const risingStr = group.rising !== null ? Math.round(group.rising) : '';
-                const fallingStr = group.falling !== null ? Math.round(group.falling) : '';
+                let risingTime = null;
+                let fallingTime = null;
+
+                group.events.forEach(event => {
+                    if (event.type === 'subida') {
+                        risingTime = event.time - timeOffset;
+                    } else if (event.type === 'descida') {
+                        fallingTime = event.time - timeOffset;
+                    }
+                });
+
+                const risingStr = risingTime !== null ? Math.round(risingTime) : '';
+                const fallingStr = fallingTime !== null ? Math.round(fallingTime) : '';
+
                 tableHTML += `<tr>
                     <td>${index + 1}</td>
                     <td style="color:${CHANNEL_COLORS[group.channel-1]}"><b>${group.channel}</b></td>
@@ -458,6 +446,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         eventsTableBody.innerHTML = tableHTML;
     }
+
     function generateCSV(isForGraph) {
         if (isForGraph) {
             if (allReadings.length === 0) return '';
@@ -557,12 +546,13 @@ document.addEventListener('DOMContentLoaded', () => {
         for (let i = 0; i < NUM_CHANNELS; i++) {
             html += `<tr>
                 <td><button class="toggle-btn enabled" id="toggle-c${i+1}">${i+1}</button></td>
-                <td><button class="toggle-btn enabled" id="toggle-s${i+1}"></button></td>
-                <td><button class="toggle-btn enabled" id="toggle-d${i+1}"></button></td>
+                <td><div class="triangle-btn triangle-up enabled" id="toggle-s${i+1}" style="color: ${CHANNEL_COLORS[i]}"></div></td>
+                <td><div class="triangle-btn triangle-down enabled" id="toggle-d${i+1}" style="color: ${CHANNEL_COLORS[i]}"></div></td>
             </tr>`;
         }
         toggleGridBody.innerHTML = html;
     }
+
     document.getElementById('toggle-col-canal').addEventListener('click', () => {
         const newState = !toggleStates.channels.every(s => s);
         toggleStates.channels.fill(newState);
@@ -582,22 +572,23 @@ document.addEventListener('DOMContentLoaded', () => {
         rebuildTimeTable();
     });
     toggleGridBody.addEventListener('click', (e) => {
-        if(e.target.tagName !== 'BUTTON') return;
-        const id = e.target.id;
+        const target = e.target;
+        if(target.tagName !== 'BUTTON' && !target.classList.contains('triangle-btn')) return;
+        const id = target.id;
         const type = id.charAt(7); // c, s, d
         const ch = parseInt(id.substring(8), 10) - 1;
         
         if(type === 'c') {
             toggleStates.channels[ch] = !toggleStates.channels[ch];
-            e.target.classList.toggle('enabled');
+            target.classList.toggle('enabled');
             processAndDisplayData();
         } else if (type === 's') {
             toggleStates.rising[ch] = !toggleStates.rising[ch];
-            e.target.classList.toggle('enabled');
+            target.classList.toggle('enabled');
             rebuildTimeTable();
         } else if (type === 'd') {
             toggleStates.falling[ch] = !toggleStates.falling[ch];
-            e.target.classList.toggle('enabled');
+            target.classList.toggle('enabled');
             rebuildTimeTable();
         }
     });
@@ -662,7 +653,30 @@ document.addEventListener('DOMContentLoaded', () => {
             renderChart(); // Re-renderiza com nova decimação
         }
     });
-    
+   
+    inputMaxAcquisitionTime.addEventListener('input', (e) => {
+        document.getElementById('max-acquisition-value').textContent = e.target.value;
+    });
+
+    inputDataDecimation.addEventListener('input', (e) => {
+        document.getElementById('decimation-value').textContent = e.target.value;
+        if (!isStreaming && allReadings.length > 0) {
+            renderChart();
+        }
+    });
+
+    // Collapsible sections
+    document.querySelectorAll('.collapsible-header').forEach(header => {
+        header.addEventListener('click', () => {
+            const targetId = header.getAttribute('data-target');
+            const content = document.getElementById(targetId);
+            const arrow = header.querySelector('.arrow');
+            
+            content.classList.toggle('collapsed');
+            arrow.classList.toggle('collapsed');
+        });
+    });
+
     // Inicialização da UI
     switchPage('conexao');
     createToggleGrid();
