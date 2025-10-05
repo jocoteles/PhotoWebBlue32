@@ -1,7 +1,7 @@
 /**
  * @file EWBclient.js
  * @brief Abstrai a comunicação Web Bluetooth para o projeto PhotoWebBlue32.
- * @version 2.0 - Refatorado para gerenciamento robusto de event listener.
+ * @version 2.1 - Adicionado suporte para múltiplos tipos de pacotes de dados.
  */
 
 // UUIDs devem ser idênticos aos definidos no firmware do ESP32
@@ -18,20 +18,12 @@ class EWBClient {
         this.streamDataChar = null;
         this.streamControlChar = null;
         this.onDisconnectCallback = null;
-
-        // Callback do usuário para dados de stream
         this.onStreamData = null;
+        this.getModeCallback = null; // Para saber como decodificar
 
-        // Handler de evento fixo e pré-vinculado ('bound').
-        // Isso garante que 'this' dentro da função esteja correto e que a
-        // referência da função seja estável para add/removeEventListener.
         this._streamDataListener = this._handleStreamDataEvent.bind(this);
     }
 
-    /**
-     * Inicia o processo de conexão com o dispositivo BLE.
-     * @returns {Promise<void>} Promessa resolvida quando a conexão e configuração estiverem completas.
-     */
     async connect() {
         if (!navigator.bluetooth) {
             const errorMsg = 'Web Bluetooth API is not available. Please use a compatible browser (Chrome, Edge) on a secure context (HTTPS or localhost).';
@@ -68,9 +60,6 @@ class EWBClient {
         }
     }
 
-    /**
-     * Desconecta do dispositivo BLE.
-     */
     disconnect() {
         if (!this.server || !this.server.connected) {
             return;
@@ -79,12 +68,8 @@ class EWBClient {
         this.server.disconnect();
     }
 
-    /**
-     * Handler interno para o evento de desconexão.
-     */
     _onDisconnect() {
         console.log('Device disconnected.');
-        // Garante que o listener seja removido na desconexão como uma medida de segurança.
         if (this.streamDataChar) {
             try {
                 this.streamDataChar.removeEventListener('characteristicvaluechanged', this._streamDataListener);
@@ -99,18 +84,10 @@ class EWBClient {
         }
     }
 
-    /**
-     * Define uma função a ser chamada quando o dispositivo se desconecta.
-     * @param {function} callback 
-     */
     onDisconnect(callback) {
         this.onDisconnectCallback = callback;
     }
 
-    /**
-     * Lê o estado atual de todas as variáveis do ESP32.
-     * @returns {Promise<Object>} Um objeto com o estado das variáveis.
-     */
     async getVariables() {
         const value = await this.jsonVarsChar.readValue();
         const textDecoder = new TextDecoder('utf-8');
@@ -118,10 +95,6 @@ class EWBClient {
         return JSON.parse(jsonString);
     }
 
-    /**
-     * Define o valor de uma ou mais variáveis no ESP32.
-     * @param {Object} varsToSet - Objeto contendo as variáveis a serem alteradas. Ex: { samples_per_chunk: 20 }
-     */
     async setVariables(varsToSet) {
         const command = { set: varsToSet };
         const jsonString = JSON.stringify(command);
@@ -131,24 +104,20 @@ class EWBClient {
 
     /**
      * Define a função que será chamada sempre que um novo pacote de dados de stream chegar.
-     * Esta função deve ser configurada uma vez após a conexão.
      * @param {function(Object)} callback A função para processar o pacote de dados.
+     * @param {function(): number} getModeCb Função que retorna o modo de aquisição atual.
      */
-    setOnStreamData(callback) {
+    setOnStreamData(callback, getModeCb) {
         this.onStreamData = callback;
+        this.getModeCallback = getModeCb;
     }
 
-    /**
-     * Inicia o streaming de dados.
-     */
     async startStream() {
         if (!this.streamDataChar) {
             console.error("Stream characteristic not available.");
             return;
         }
-        // Adiciona o listener de evento.
         this.streamDataChar.addEventListener('characteristicvaluechanged', this._streamDataListener);
-
         await this.streamDataChar.startNotifications();
         console.log('Stream notifications started.');
 
@@ -157,9 +126,6 @@ class EWBClient {
         console.log('Stream START command sent.');
     }
 
-    /**
-     * Para o streaming de dados.
-     */
     async stopStream() {
         if (!this.streamControlChar || !this.streamDataChar) {
             console.error("Stream characteristics not available.");
@@ -169,42 +135,61 @@ class EWBClient {
         await this.streamControlChar.writeValue(stopCommand);
         console.log('Stream STOP command sent.');
         
-        // Remove o listener de evento. Esta é a parte crítica para evitar "listeners zumbis".
         this.streamDataChar.removeEventListener('characteristicvaluechanged', this._streamDataListener);
         
-        // Para as notificações do dispositivo.
         await this.streamDataChar.stopNotifications();
         console.log('Stream notifications stopped.');
     }
     
-    /**
-     * Handler interno que é chamado pelo evento 'characteristicvaluechanged'.
-     * Ele decodifica os dados e chama o callback do usuário (onStreamData).
-     * @param {Event} event O evento de notificação do Bluetooth.
-     */
     _handleStreamDataEvent(event) {
-        if (!this.onStreamData) {
+        if (!this.onStreamData || !this.getModeCallback) {
             return;
         }
 
         const dataView = event.target.value;
-        // A estrutura no ESP32 é: 6x uint16_t + 1x uint32_t = 16 bytes por pacote
-        const packetSizeBytes = (6 * 2) + 4;
-        const numPackets = dataView.byteLength / packetSizeBytes;
+        const currentMode = this.getModeCallback();
 
-        for (let i = 0; i < numPackets; i++) {
-            const offset = i * packetSizeBytes;
-            const packet = {
-                reading1: dataView.getUint16(offset + 0, true), // true para little-endian
-                reading2: dataView.getUint16(offset + 2, true),
-                reading3: dataView.getUint16(offset + 4, true),
-                reading4: dataView.getUint16(offset + 6, true),
-                reading5: dataView.getUint16(offset + 8, true),
-                reading6: dataView.getUint16(offset + 10, true),
-                time_ms: dataView.getUint32(offset + 12, true)
-            };
-            // Chama a função que foi definida em main.js via setOnStreamData
-            this.onStreamData(packet);
+        // Modos de Streaming (0 ou 2)
+        if (currentMode === 0 || currentMode === 2) {
+            // Estrutura: 6x uint16_t + 1x uint32_t = 16 bytes por pacote
+            const packetSizeBytes = (6 * 2) + 4;
+            if (dataView.byteLength % packetSizeBytes !== 0) return; // Pacote malformado
+            const numPackets = dataView.byteLength / packetSizeBytes;
+
+            for (let i = 0; i < numPackets; i++) {
+                const offset = i * packetSizeBytes;
+                const packet = {
+                    reading1: dataView.getUint16(offset + 0, true),
+                    reading2: dataView.getUint16(offset + 2, true),
+                    reading3: dataView.getUint16(offset + 4, true),
+                    reading4: dataView.getUint16(offset + 6, true),
+                    reading5: dataView.getUint16(offset + 8, true),
+                    reading6: dataView.getUint16(offset + 10, true),
+                    time_ms: dataView.getUint32(offset + 12, true)
+                };
+                this.onStreamData(packet); // Chama o callback para cada pacote individual
+            }
+        } 
+        // Modos de Tempo (1 ou 3)
+        else {
+            // Estrutura: 1x uint8 (canal), 1x uint8 (tipo), 1x uint32 (tempo) = 6 bytes
+            const packetSizeBytes = 1 + 1 + 4;
+            if (dataView.byteLength % packetSizeBytes !== 0) return; // Pacote malformado
+            const numPackets = dataView.byteLength / packetSizeBytes;
+            let events = [];
+
+            for (let i = 0; i < numPackets; i++) {
+                const offset = i * packetSizeBytes;
+                const eventPacket = {
+                    channel: dataView.getUint8(offset + 0),
+                    type: dataView.getUint8(offset + 1) === 1 ? 'subida' : 'descida',
+                    time: dataView.getUint32(offset + 2, true)
+                };
+                events.push(eventPacket);
+            }
+            if (events.length > 0) {
+                this.onStreamData(events); // Envia um array de eventos de uma vez
+            }
         }
     }
 }

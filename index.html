@@ -15,7 +15,7 @@
         
         <nav class="top-nav">
             <button id="nav-btn-conexao" class="nav-btn">Conexão</button>
-            <button id="nav-btn-canais" class="nav-btn">Canais</button>
+            <button id="nav-btn-aquisicao" class="nav-btn">Aquisição</button>
             <button id="nav-btn-config" class="nav-btn">Config</button>
         </nav>
 
@@ -30,11 +30,13 @@
             <p>Dispositivo conectado: <strong id="device-name-display">Nenhum</strong></p>
         </div>
 
-        <!-- DIV CANAIS -->
-        <div id="div-canais" class="page-div">
+        <!-- DIV AQUISIÇÃO (ANTIGA CANAIS) -->
+        <div id="div-aquisicao" class="page-div">
+             <h2 style="margin-bottom: 5px;">Aquisição</h2>
+             <h3 id="acquisition-mode-subtitle" style="text-align: center; margin-top: 0; color: #555; font-weight: normal;">Modo: Nenhum</h3>
              <button id="btn-trigger-reading" disabled>Disparar Leitura</button>
              
-             <div id="data-acquisition-section" style="display: none;">
+             <div id="data-acquisition-section">
                 <div class="collapsible-section">
                     <div class="collapsible-header" data-target="chart-content">
                         <h2 style="margin: 0;">Gráfico de Níveis</h2>
@@ -53,7 +55,7 @@
                         <span class="arrow">▼</span>
                     </div>
                     <div class="collapsible-content" id="events-content">
-                        <fieldset id="channels-fieldset" disabled style="border: none; padding: 0; margin: 0;">
+                        <fieldset id="channels-fieldset" style="border: none; padding: 0; margin: 0;">
                             <table class="toggle-grid">
                                 <thead>
                                     <tr>
@@ -112,6 +114,17 @@
         <!-- DIV CONFIG -->
         <div id="div-config" class="page-div">
             <h2>Configurações</h2>
+            
+            <div class="control-group">
+                <label for="acquisition-mode-select" style="font-weight: bold;">Modo de Aquisição</label>
+                <select id="acquisition-mode-select" style="width: 100%; padding: 8px; font-size: 16px; box-sizing: border-box;" disabled>
+                    <option value="0">Streaming de dados reais</option>
+                    <option value="1">Tempos de disparo</option>
+                    <option value="2">Simulação de streaming</option>
+                    <option value="3">Simulação de tempos de disparo</option>
+                </select>
+            </div>
+
             <div class="control-group">
                 <label for="line-thickness">Espessura da linha do canal: <span id="line-thickness-value">100%</span></label>
                 <div class="config-item"><input type="range" id="line-thickness" min="20" max="200" value="100"></div>

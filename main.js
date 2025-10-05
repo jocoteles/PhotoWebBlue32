@@ -6,17 +6,12 @@ document.addEventListener('DOMContentLoaded', () => {
     let isStreaming = false;
     let maxAcquisitionTimer = null;
     let allReadings = [];
+    let allEvents = [];
     let chartInstance = null;
+    let currentAcquisitionMode = 0;
     
     const NUM_CHANNELS = 6;
-    const CHANNEL_COLORS = [
-        '#e91700',
-        '#ff9d00',
-        '#b0b305ff',
-        '#04c755',
-        '#0210d6',
-        '#8601bb',
-    ];
+    const CHANNEL_COLORS = [ '#e91700', '#ff9d00', '#b0b305ff', '#04c755', '#0210d6', '#8601bb' ];
     const DEFAULT_TRIGGER = 2048;
 
     let triggerLevels = Array(NUM_CHANNELS).fill(DEFAULT_TRIGGER);
@@ -30,27 +25,22 @@ document.addEventListener('DOMContentLoaded', () => {
     let groupEvents = false;
 
     // --- Elementos da UI ---
-    // Navegação
     const navButtons = {
         conexao: document.getElementById('nav-btn-conexao'),
-        canais: document.getElementById('nav-btn-canais'),
+        aquisicao: document.getElementById('nav-btn-aquisicao'),
         config: document.getElementById('nav-btn-config'),
     };
     const pageDivs = {
         conexao: document.getElementById('div-conexao'),
-        canais: document.getElementById('div-canais'),
+        aquisicao: document.getElementById('div-aquisicao'),
         config: document.getElementById('div-config'),
     };
 
-    // Conexão
     const statusBar = document.getElementById('status-bar');
     const btnConnect = document.getElementById('btn-connect');
     const btnDisconnect = document.getElementById('btn-disconnect');
     const deviceNameDisplay = document.getElementById('device-name-display');
-
-    // Canais
     const btnTriggerReading = document.getElementById('btn-trigger-reading');
-    const dataAcquisitionSection = document.getElementById('data-acquisition-section');
     const channelsFieldset = document.getElementById('channels-fieldset');
     const toggleGridBody = document.querySelector('.toggle-grid tbody');
     const eventsTableBody = document.querySelector('#events-table tbody');
@@ -59,13 +49,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnZeroOrigin = document.getElementById('btn-zero-origin');
     const btnShowEvents = document.getElementById('btn-show-events');
     const btnGroupEvents = document.getElementById('btn-group-events');
-
-    // Salvar
     const btnCopyTimes = document.getElementById('btn-copy-times');
     const btnSaveTimes = document.getElementById('btn-save-times');
     const btnSaveGraph = document.getElementById('btn-save-graph');
     
-    // Config
+    const acquisitionModeSelect = document.getElementById('acquisition-mode-select');
+    const acquisitionModeSubtitle = document.getElementById('acquisition-mode-subtitle');
     const inputLineThickness = document.getElementById('line-thickness');
     const inputTriggerThickness = document.getElementById('trigger-thickness');
     const inputEventRadius = document.getElementById('event-radius');
@@ -75,8 +64,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const advancedSettingsDiv = document.getElementById('advanced-settings');
     const inputSamplesPerChunk = document.getElementById('samples-per-chunk');
     const inputSampleIntervalUs = document.getElementById('sample-interval-us');
+    const inputDataDecimation = document.getElementById('data-decimation');
 
-    // --- Verificação de compatibilidade ---
     if (!navigator.bluetooth) {
         statusBar.textContent = 'Web Bluetooth não suportado. Use Chrome/Edge.';
         statusBar.className = 'status disconnected';
@@ -84,8 +73,6 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
     }
     
-    // --- Funções de Lógica Principal ---
-
     function switchPage(pageName) {
         Object.keys(pageDivs).forEach(key => {
             pageDivs[key].classList.toggle('visible', key === pageName);
@@ -99,6 +86,7 @@ document.addEventListener('DOMContentLoaded', () => {
         btnConnect.disabled = connected;
         btnDisconnect.disabled = !connected;
         btnTriggerReading.disabled = !connected;
+        acquisitionModeSelect.disabled = !connected;
 
         if (connected) {
             statusBar.textContent = 'Conectado';
@@ -111,10 +99,23 @@ document.addEventListener('DOMContentLoaded', () => {
             if(isStreaming) stopReading();
         }
     }
+    
+    // MODIFICADO: Esta função agora APENAS atualiza a UI e o estado local.
+    // Ela não envia mais dados por BLE.
+    function updateAcquisitionModeUI(mode) {
+        currentAcquisitionMode = parseInt(mode, 10);
+        const selectedOption = acquisitionModeSelect.options[acquisitionModeSelect.selectedIndex];
+        acquisitionModeSubtitle.textContent = `Modo: ${selectedOption.text}`;
+
+        allReadings = [];
+        allEvents = [];
+        
+        processAndDisplayData();
+    }
 
     function startReading() {
-        // 1. Limpa os dados da aquisição anterior
         allReadings = []; 
+        allEvents = [];
         isStreaming = true;
         
         eventsTableBody.innerHTML = '<tr><td colspan="4">Adquirindo dados...</td></tr>';
@@ -122,9 +123,7 @@ document.addEventListener('DOMContentLoaded', () => {
         btnTriggerReading.textContent = "Interromper Leitura";
         btnTriggerReading.classList.add('reading');
         channelsFieldset.disabled = true;
-
         
-        // 2. Apenas inicia o stream. O callback já foi configurado uma vez na conexão.
         ewbClient.startStream(); 
 
         const maxTime = parseInt(inputMaxAcquisitionTime.value, 10) * 1000;
@@ -145,25 +144,25 @@ document.addEventListener('DOMContentLoaded', () => {
         processAndDisplayData();
     }
     
-    // Esta é a função que é chamada pelo EWBClient a cada pacote de dados recebido.
     function handleStreamData(packet) {
-        allReadings.push(packet);
+        if (currentAcquisitionMode === 0 || currentAcquisitionMode === 2) {
+            allReadings.push(packet);
+        } else {
+            allEvents.push(...packet);
+        }
     }
 
     function processAndDisplayData() {
-        dataAcquisitionSection.style.display = 'block';
         analysisControls.style.display = 'block';
         saveControls.style.display = 'block';
 
-        if (allReadings.length === 0) {
-            eventsTableBody.innerHTML = '<tr><td colspan="4">Nenhum dado foi adquirido.</td></tr>';
-            if (chartInstance) {
-                chartInstance.destroy();
-                chartInstance = null;
-            }
-            return;
-        }
+        const isStreamingMode = currentAcquisitionMode === 0 || currentAcquisitionMode === 2;
+        const hasData = isStreamingMode ? allReadings.length > 0 : allEvents.length > 0;
 
+        if (!hasData) {
+            eventsTableBody.innerHTML = '<tr><td colspan="4">Nenhum dado foi adquirido.</td></tr>';
+        }
+        
         renderChart();
         rebuildTimeTable();
     }
@@ -171,22 +170,25 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderChart() {
         const ctx = document.getElementById('main-chart').getContext('2d');
         const datasets = [];
-        
-        const decimation = parseInt(inputDataDecimation.value, 10) || 1;
-        const decimatedReadings = allReadings.filter((_, index) => index % decimation === 0);
+        const isStreamingMode = currentAcquisitionMode === 0 || currentAcquisitionMode === 2;
 
-        for(let i = 0; i < NUM_CHANNELS; i++) {
-            if(toggleStates.channels[i]) {
-                datasets.push({
-                    label: `Canal ${i+1}`,
-                    data: decimatedReadings.map(d => ({ x: d.time_ms, y: d[`reading${i+1}`] })),
-                    borderColor: CHANNEL_COLORS[i],
-                    backgroundColor: CHANNEL_COLORS[i],
-                    borderWidth: parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--line-thickness')),
-                    pointRadius: 0,
-                    fill: false,
-                    tension: 0.1
-                });
+        if (isStreamingMode && allReadings.length > 0) {
+            const decimation = parseInt(inputDataDecimation.value, 10) || 1;
+            const decimatedReadings = allReadings.filter((_, index) => index % decimation === 0);
+
+            for(let i = 0; i < NUM_CHANNELS; i++) {
+                if(toggleStates.channels[i]) {
+                    datasets.push({
+                        label: `Canal ${i+1}`,
+                        data: decimatedReadings.map(d => ({ x: d.time_ms, y: d[`reading${i+1}`] })),
+                        borderColor: CHANNEL_COLORS[i],
+                        backgroundColor: CHANNEL_COLORS[i],
+                        borderWidth: parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--line-thickness')),
+                        pointRadius: 0,
+                        fill: false,
+                        tension: 0.1
+                    });
+                }
             }
         }
         
@@ -204,38 +206,35 @@ document.addEventListener('DOMContentLoaded', () => {
                 parsing: false,
                 normalized: true,
                 scales: {
-                    x: {
-                        type: 'linear',
-                        title: { display: true, text: 'Tempo (ms)' }
-                    },
-                    y: {
-                        title: { display: true, text: 'Nível (ADC)' },
-                        min: 0,
-                        max: 4095
-                    }
+                    x: { type: 'linear', title: { display: true, text: 'Tempo (ms)' } },
+                    y: { title: { display: true, text: 'Nível (ADC)' }, min: 0, max: 4095 }
                 },
                 plugins: {
-                    decimation: {
-                        enabled: true,
-                        algorithm: 'lttb'
-                    },
+                    decimation: { enabled: true, algorithm: 'lttb' },
                     zoom: {
                         pan: { enabled: true, mode: 'xy' },
                         zoom: { wheel: { enabled: true }, pinch: { enabled: true }, mode: 'xy' }
                     },
-                    legend: { display: true },
-                    annotation: {
-                        annotations: buildAnnotations()
-                    }
+                    legend: { display: isStreamingMode && datasets.length > 0 },
+                    annotation: { annotations: buildAnnotations() }
                 },
-                onClick: (evt) => {
+                onClick: async (evt) => {
                     if (isStreaming || !chartInstance) return;
-                    const yValue = chartInstance.scales.y.getValueForPixel(evt.native.offsetY);
+                    const yValue = Math.round(chartInstance.scales.y.getValueForPixel(evt.native.offsetY));
+                    let varsToSend = {};
                     for (let i = 0; i < NUM_CHANNELS; i++) {
                         if (toggleStates.channels[i]) {
-                            triggerLevels[i] = Math.round(yValue);
+                            triggerLevels[i] = yValue;
+                            varsToSend[`trigger_c${i+1}`] = yValue;
                         }
                     }
+                    
+                    if (isConnected && Object.keys(varsToSend).length > 0) {
+                        try {
+                            await ewbClient.setVariables(varsToSend);
+                        } catch (e) { console.error("Falha ao enviar triggers:", e); }
+                    }
+
                     chartInstance.options.plugins.annotation.annotations = buildAnnotations();
                     chartInstance.update('none');
                     rebuildTimeTable();
@@ -243,24 +242,32 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
         
-        chartInstance.resetZoom();
+        if(isStreamingMode) chartInstance.resetZoom();
     }
     
     function findEvents() {
-        if (allReadings.length < 2) return [];
+        const isStreamingMode = currentAcquisitionMode === 0 || currentAcquisitionMode === 2;
 
+        if (!isStreamingMode) {
+            return allEvents.filter(event => {
+                const chIndex = event.channel - 1;
+                if (!toggleStates.channels[chIndex]) return false;
+                if (event.type === 'subida' && !toggleStates.rising[chIndex]) return false;
+                if (event.type === 'descida' && !toggleStates.falling[chIndex]) return false;
+                return true;
+            });
+        }
+
+        if (allReadings.length < 2) return [];
         let events = [];
         for (let i = 1; i < allReadings.length; i++) {
             const prev = allReadings[i - 1];
             const curr = allReadings[i];
-
             for (let ch = 0; ch < NUM_CHANNELS; ch++) {
                 if (!toggleStates.channels[ch]) continue;
-
                 const trigger = triggerLevels[ch];
                 const prevVal = prev[`reading${ch+1}`];
                 const currVal = curr[`reading${ch+1}`];
-
                 if (toggleStates.rising[ch] && prevVal < trigger && currVal >= trigger) {
                     events.push({ time: curr.time_ms, channel: ch + 1, type: 'subida' });
                 }
@@ -269,181 +276,100 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
         }
-        
         events.sort((a, b) => a.time - b.time);
         return events;
     }
     
     function getGroupedEvents(events) {
         let eventsByChannel = {};
-        for (let ch = 1; ch <= NUM_CHANNELS; ch++) {
-            eventsByChannel[ch] = [];
-        }
-        
-        events.forEach(event => {
-            eventsByChannel[event.channel].push(event);
-        });
+        for (let ch = 1; ch <= NUM_CHANNELS; ch++) { eventsByChannel[ch] = []; }
+        events.forEach(event => { eventsByChannel[event.channel].push(event); });
         
         let groupedEvents = [];
         for (let ch = 1; ch <= NUM_CHANNELS; ch++) {
             let channelEvents = eventsByChannel[ch];
             let i = 0;
-            
             while (i < channelEvents.length) {
                 let currentEvent = channelEvents[i];
-                
                 if (i + 1 < channelEvents.length) {
                     let nextEvent = channelEvents[i + 1];
                     if (currentEvent.type !== nextEvent.type) {
-                        groupedEvents.push({
-                            channel: ch,
-                            time: Math.min(currentEvent.time, nextEvent.time),
-                            events: [currentEvent, nextEvent] // Armazena os dois eventos do par
-                        });
-                        i += 2;
-                        continue;
+                        groupedEvents.push({ channel: ch, time: Math.min(currentEvent.time, nextEvent.time), events: [currentEvent, nextEvent] });
+                        i += 2; continue;
                     }
                 }
-                
-                groupedEvents.push({
-                    channel: ch,
-                    time: currentEvent.time,
-                    events: [currentEvent] // Evento isolado
-                });
+                groupedEvents.push({ channel: ch, time: currentEvent.time, events: [currentEvent] });
                 i++;
             }
         }
-        
         groupedEvents.sort((a, b) => a.time - b.time);
         return groupedEvents;
     }
 
     function buildAnnotations() {
         const annotations = {};
-        
         for(let i = 0; i < NUM_CHANNELS; i++) {
             if (toggleStates.channels[i]) {
                 annotations[`trigger${i+1}`] = {
-                    type: 'line',
-                    yMin: triggerLevels[i],
-                    yMax: triggerLevels[i],
+                    type: 'line', yMin: triggerLevels[i], yMax: triggerLevels[i],
                     borderColor: CHANNEL_COLORS[i],
                     borderWidth: parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--trigger-thickness')),
                     borderDash: [6, 6],
-                    label: {
-                        content: `T${i+1}`,
-                        enabled: true,
-                        position: 'start',
-                        backgroundColor: 'rgba(0,0,0,0.6)'
-                    }
+                    label: { content: `T${i+1}`, enabled: true, position: 'start', backgroundColor: 'rgba(0,0,0,0.6)' }
                 };
             }
         }
         
-        if(showEventsOnGraph) {
+        const isStreamingMode = currentAcquisitionMode === 0 || currentAcquisitionMode === 2;
+        const hasData = isStreamingMode ? allReadings.length > 0 : allEvents.length > 0;
+
+        if(showEventsOnGraph && hasData) {
             const events = findEvents();
-            
             if (groupEvents) {
                 const groupedEvents = getGroupedEvents(events);
-
                 groupedEvents.forEach((group, groupIndex) => {
                     group.events.forEach(event => {
                         const uniqueId = `group_${groupIndex}_event_${event.time}`;
-                        annotations[`event_${uniqueId}`] = {
-                            type: 'point',
-                            xValue: event.time,
-                            yValue: triggerLevels[event.channel - 1],
-                            backgroundColor: CHANNEL_COLORS[event.channel - 1],
-                            radius: parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--event-radius'))
-                        };
-                        annotations[`eventLabel_${uniqueId}`] = {
-                            type: 'label',
-                            xValue: event.time,
-                            yValue: triggerLevels[event.channel - 1],
-                            content: (groupIndex + 1).toString(),
-                            font: { size: 10 },
-                            color: 'black',
-                            yAdjust: -10
-                        };
+                        annotations[`event_${uniqueId}`] = { type: 'point', xValue: event.time, yValue: triggerLevels[event.channel - 1], backgroundColor: CHANNEL_COLORS[event.channel - 1], radius: parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--event-radius')) };
+                        annotations[`eventLabel_${uniqueId}`] = { type: 'label', xValue: event.time, yValue: triggerLevels[event.channel - 1], content: (groupIndex + 1).toString(), font: { size: 10 }, color: 'black', yAdjust: -10 };
                     });
                 });
-
             } else {
                 events.forEach((event, index) => {
-                    annotations[`event${index}`] = {
-                        type: 'point',
-                        xValue: event.time,
-                        yValue: triggerLevels[event.channel - 1],
-                        backgroundColor: CHANNEL_COLORS[event.channel - 1],
-                        radius: parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--event-radius'))
-                    };
-                    annotations[`eventLabel${index}`] = {
-                        type: 'label',
-                        xValue: event.time,
-                        yValue: triggerLevels[event.channel - 1],
-                        content: (index + 1).toString(),
-                        font: { size: 10 },
-                        color: 'black',
-                        yAdjust: -10
-                    };
+                    annotations[`event${index}`] = { type: 'point', xValue: event.time, yValue: triggerLevels[event.channel - 1], backgroundColor: CHANNEL_COLORS[event.channel - 1], radius: parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--event-radius')) };
+                    annotations[`eventLabel${index}`] = { type: 'label', xValue: event.time, yValue: triggerLevels[event.channel - 1], content: (index + 1).toString(), font: { size: 10 }, color: 'black', yAdjust: -10 };
                 });
             }
         }
-        
         return annotations;
     }
 
     function rebuildTimeTable() {
         const events = findEvents();
-        
         if (events.length === 0) {
             eventsTableBody.innerHTML = '<tr><td colspan="4">Nenhum evento detectado para a seleção atual.</td></tr>';
             return;
         }
-
         const timeOffset = (isZeroOrigin && events.length > 0) ? events[0].time : 0;
-
         let tableHTML = '';
-        
         if (groupEvents) {
             const groupedEvents = getGroupedEvents(events);
-            
             groupedEvents.forEach((group, index) => {
-                let risingTime = null;
-                let fallingTime = null;
-
+                let risingTime = null, fallingTime = null;
                 group.events.forEach(event => {
-                    if (event.type === 'subida') {
-                        risingTime = event.time - timeOffset;
-                    } else if (event.type === 'descida') {
-                        fallingTime = event.time - timeOffset;
-                    }
+                    if (event.type === 'subida') risingTime = event.time - timeOffset;
+                    else if (event.type === 'descida') fallingTime = event.time - timeOffset;
                 });
-
-                const risingStr = risingTime !== null ? Math.round(risingTime) : '';
-                const fallingStr = fallingTime !== null ? Math.round(fallingTime) : '';
-
-                tableHTML += `<tr>
-                    <td>${index + 1}</td>
-                    <td style="color:${CHANNEL_COLORS[group.channel-1]}"><b>${group.channel}</b></td>
-                    <td>${risingStr}</td>
-                    <td>${fallingStr}</td>
-                </tr>`;
+                tableHTML += `<tr><td>${index + 1}</td><td style="color:${CHANNEL_COLORS[group.channel-1]}"><b>${group.channel}</b></td><td>${risingTime !== null ? Math.round(risingTime) : ''}</td><td>${fallingTime !== null ? Math.round(fallingTime) : ''}</td></tr>`;
             });
         } else {
             events.forEach((event, index) => {
                 const adjustedTime = event.time - timeOffset;
                 const subida = event.type === 'subida' ? Math.round(adjustedTime) : '';
                 const descida = event.type === 'descida' ? Math.round(adjustedTime) : '';
-                tableHTML += `<tr>
-                    <td>${index + 1}</td>
-                    <td style="color:${CHANNEL_COLORS[event.channel-1]}"><b>${event.channel}</b></td>
-                    <td>${subida}</td>
-                    <td>${descida}</td>
-                </tr>`;
+                tableHTML += `<tr><td>${index + 1}</td><td style="color:${CHANNEL_COLORS[event.channel-1]}"><b>${event.channel}</b></td><td>${subida}</td><td>${descida}</td></tr>`;
             });
         }
-        
         eventsTableBody.innerHTML = tableHTML;
     }
 
@@ -461,7 +387,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return csv;
         } else {
             const rows = Array.from(eventsTableBody.querySelectorAll('tr'));
-             if (rows.length === 0) return '';
+            if (rows.length === 0) return '';
             let csv = 'Evento,Canal,Subida_ms,Descida_ms\n';
             rows.forEach(row => {
                 const cols = Array.from(row.querySelectorAll('td')).map(td => td.textContent.trim());
@@ -483,23 +409,47 @@ document.addEventListener('DOMContentLoaded', () => {
         document.body.removeChild(link);
     }
 
-    // --- Inicialização e Event Listeners ---
+    // --- Listeners de Eventos ---
 
     Object.keys(navButtons).forEach(key => {
         navButtons[key].addEventListener('click', () => switchPage(key));
+    });
+
+    // MODIFICADO: Agora envia o comando BLE quando o usuário muda a seleção.
+    acquisitionModeSelect.addEventListener('change', (e) => {
+        updateAcquisitionModeUI(e.target.value);
+        if (isConnected) {
+            ewbClient.setVariables({ acquisition_mode: currentAcquisitionMode })
+                .catch(err => console.error("Falha ao definir novo modo:", err));
+        }
     });
 
     btnConnect.addEventListener('click', async () => {
         try {
             await ewbClient.connect();
             setUIConnected(true);
-            
-            // *** MUDANÇA CRÍTICA: Define o callback de dados UMA VEZ após conectar ***
-            ewbClient.setOnStreamData(handleStreamData);
+            ewbClient.setOnStreamData(handleStreamData, () => currentAcquisitionMode);
 
             const variables = await ewbClient.getVariables();
             inputSamplesPerChunk.value = variables.samples_per_chunk;
             inputSampleIntervalUs.value = variables.sample_interval_us;
+            
+            // ATUALIZADO: Atualiza a UI primeiro
+            updateAcquisitionModeUI(acquisitionModeSelect.value);
+
+            // NOVO: Cria um único objeto com TODAS as configurações iniciais
+            let initialConfig = {
+                acquisition_mode: currentAcquisitionMode
+            };
+            for(let i = 0; i < NUM_CHANNELS; i++) {
+                initialConfig[`trigger_c${i+1}`] = triggerLevels[i];
+            }
+
+            // Envia todas as configurações de uma só vez para evitar a corrida
+            console.log("Enviando configuração inicial:", initialConfig);
+            await ewbClient.setVariables(initialConfig);
+            console.log("Configuração inicial enviada com sucesso.");
+
         } catch (error) {
             console.error('Falha ao conectar:', error);
             setUIConnected(false);
@@ -509,21 +459,13 @@ document.addEventListener('DOMContentLoaded', () => {
     btnDisconnect.addEventListener('click', () => ewbClient.disconnect());
     ewbClient.onDisconnect(() => setUIConnected(false));
     
-    btnTriggerReading.addEventListener('click', () => {
-        isStreaming ? stopReading() : startReading();
-    });
+    btnTriggerReading.addEventListener('click', () => { isStreaming ? stopReading() : startReading(); });
     
-    btnZeroOrigin.addEventListener('click', () => {
-        isZeroOrigin = !isZeroOrigin;
-        btnZeroOrigin.classList.toggle('enabled', isZeroOrigin);
-        btnZeroOrigin.textContent = isZeroOrigin ? 'Restaurar tempo original' : 'Zerar origem temporal';
-        rebuildTimeTable();
-    });
+    btnZeroOrigin.addEventListener('click', () => { isZeroOrigin = !isZeroOrigin; btnZeroOrigin.classList.toggle('enabled', isZeroOrigin); rebuildTimeTable(); });
 
     btnShowEvents.addEventListener('click', () => {
         showEventsOnGraph = !showEventsOnGraph;
         btnShowEvents.classList.toggle('enabled', showEventsOnGraph);
-        btnShowEvents.textContent = showEventsOnGraph ? 'Ocultar eventos no gráfico' : 'Mostrar eventos no gráfico';
         if(chartInstance) {
             chartInstance.options.plugins.annotation.annotations = buildAnnotations();
             chartInstance.update('none');
@@ -533,7 +475,6 @@ document.addEventListener('DOMContentLoaded', () => {
     btnGroupEvents.addEventListener('click', () => {
         groupEvents = !groupEvents;
         btnGroupEvents.classList.toggle('enabled', groupEvents);
-        btnGroupEvents.textContent = groupEvents ? 'Separar subida/descida' : 'Juntar subida/descida';
         rebuildTimeTable();
         if(showEventsOnGraph && chartInstance) {
             chartInstance.options.plugins.annotation.annotations = buildAnnotations();
@@ -571,113 +512,54 @@ document.addEventListener('DOMContentLoaded', () => {
         for(let i=0; i<NUM_CHANNELS; i++) document.getElementById(`toggle-d${i+1}`).classList.toggle('enabled', newState);
         rebuildTimeTable();
     });
+
     toggleGridBody.addEventListener('click', (e) => {
         const target = e.target;
         if(target.tagName !== 'BUTTON' && !target.classList.contains('triangle-btn')) return;
         const id = target.id;
-        const type = id.charAt(7); // c, s, d
+        const type = id.charAt(7);
         const ch = parseInt(id.substring(8), 10) - 1;
         
         if(type === 'c') {
             toggleStates.channels[ch] = !toggleStates.channels[ch];
             target.classList.toggle('enabled');
             processAndDisplayData();
-        } else if (type === 's') {
-            toggleStates.rising[ch] = !toggleStates.rising[ch];
-            target.classList.toggle('enabled');
-            rebuildTimeTable();
-        } else if (type === 'd') {
-            toggleStates.falling[ch] = !toggleStates.falling[ch];
+        } else if (type === 's' || type === 'd') {
+            if (type === 's') toggleStates.rising[ch] = !toggleStates.rising[ch];
+            if (type === 'd') toggleStates.falling[ch] = !toggleStates.falling[ch];
             target.classList.toggle('enabled');
             rebuildTimeTable();
         }
     });
 
-    btnCopyTimes.addEventListener('click', () => {
-        const csv = generateCSV(false).replace(/,/g, '\t'); // TSV for Excel
-        navigator.clipboard.writeText(csv).then(() => alert('Tabela copiada!'), () => alert('Falha ao copiar.'));
-    });
+    btnCopyTimes.addEventListener('click', () => { const csv = generateCSV(false).replace(/,/g, '\t'); navigator.clipboard.writeText(csv).then(() => alert('Tabela copiada!'), () => alert('Falha ao copiar.')); });
     btnSaveTimes.addEventListener('click', () => downloadCSV(generateCSV(false), 'tempos_photogate.csv'));
     btnSaveGraph.addEventListener('click', () => downloadCSV(generateCSV(true), 'dados_brutos_photogate.csv'));
 
-    inputLineThickness.addEventListener('input', (e) => {
-        document.documentElement.style.setProperty('--line-thickness', `${2 * e.target.value / 100}px`);
-        document.getElementById('line-thickness-value').textContent = `${e.target.value}%`;
-    });
-    inputTriggerThickness.addEventListener('input', (e) => {
-        document.documentElement.style.setProperty('--trigger-thickness', `${1 * e.target.value / 100}px`);
-        document.getElementById('trigger-thickness-value').textContent = `${e.target.value}%`;
-    });
-    inputEventRadius.addEventListener('input', (e) => {
-        document.documentElement.style.setProperty('--event-radius', `${4 * e.target.value / 100}px`);
-         document.getElementById('event-radius-value').textContent = `${e.target.value}%`;
-    });
-    inputChartHeight.addEventListener('input', (e) => {
-        document.documentElement.style.setProperty('--chart-height', `${400 * e.target.value / 100}px`);
-        document.getElementById('chart-height-value').textContent = `${e.target.value}%`;
-    });
-    btnAdvanced.addEventListener('click', () => {
-        const pass = prompt("Digite a senha de administrador:", "");
-        if (pass === "bolt") {
-            advancedSettingsDiv.style.display = 'block';
-            inputSamplesPerChunk.disabled = false;
-            inputSampleIntervalUs.disabled = false;
-        } else if (pass !== null) {
-            alert("Senha incorreta.");
-        }
-    });
+    inputLineThickness.addEventListener('input', (e) => { document.documentElement.style.setProperty('--line-thickness', `${2 * e.target.value / 100}px`); document.getElementById('line-thickness-value').textContent = `${e.target.value}%`; });
+    inputTriggerThickness.addEventListener('input', (e) => { document.documentElement.style.setProperty('--trigger-thickness', `${1 * e.target.value / 100}px`); document.getElementById('trigger-thickness-value').textContent = `${e.target.value}%`; });
+    inputEventRadius.addEventListener('input', (e) => { document.documentElement.style.setProperty('--event-radius', `${4 * e.target.value / 100}px`); document.getElementById('event-radius-value').textContent = `${e.target.value}%`; });
+    inputChartHeight.addEventListener('input', (e) => { document.documentElement.style.setProperty('--chart-height', `${400 * e.target.value / 100}px`); document.getElementById('chart-height-value').textContent = `${e.target.value}%`; });
+    inputMaxAcquisitionTime.addEventListener('input', (e) => { document.getElementById('max-acquisition-value').textContent = e.target.value; });
+    inputDataDecimation.addEventListener('input', (e) => { document.getElementById('decimation-value').textContent = e.target.value; if (!isStreaming && allReadings.length > 0) renderChart(); });
 
-    const sendAdvancedSetting = (key, value) => {
-        if (!isConnected) {
-            alert('Conecte ao dispositivo primeiro.');
-            return;
-        }
-        ewbClient.setVariables({ [key]: value })
-            .then(() => {
-                console.log(`${key} atualizado para ${value}`);
-                if (key === 'samples_per_chunk') inputSamplesPerChunk.disabled = true;
-                if (key === 'sample_interval_us') inputSampleIntervalUs.disabled = true;
-                if (inputSamplesPerChunk.disabled && inputSampleIntervalUs.disabled) {
-                    advancedSettingsDiv.style.display = 'none';
-                }
-            })
-            .catch(err => console.error(`Falha ao atualizar ${key}`, err));
-    };
+    btnAdvanced.addEventListener('click', () => { const pass = prompt("Digite a senha de administrador:", ""); if (pass === "bolt") { advancedSettingsDiv.style.display = 'block'; } else if (pass !== null) { alert("Senha incorreta."); } });
 
+    const sendAdvancedSetting = (key, value) => { if (!isConnected) { alert('Conecte ao dispositivo primeiro.'); return; } ewbClient.setVariables({ [key]: value }).then(() => console.log(`${key} atualizado para ${value}`)).catch(err => console.error(`Falha ao atualizar ${key}`, err)); };
     inputSamplesPerChunk.addEventListener('change', (e) => sendAdvancedSetting('samples_per_chunk', parseInt(e.target.value, 10)));
     inputSampleIntervalUs.addEventListener('change', (e) => sendAdvancedSetting('sample_interval_us', parseInt(e.target.value, 10)));
-    const inputDataDecimation = document.getElementById('data-decimation');
-    inputDataDecimation.addEventListener('input', (e) => {
-        document.getElementById('decimation-value').textContent = e.target.value;
-        if (!isStreaming && allReadings.length > 0) {
-            renderChart(); // Re-renderiza com nova decimação
-        }
-    });
-   
-    inputMaxAcquisitionTime.addEventListener('input', (e) => {
-        document.getElementById('max-acquisition-value').textContent = e.target.value;
-    });
 
-    inputDataDecimation.addEventListener('input', (e) => {
-        document.getElementById('decimation-value').textContent = e.target.value;
-        if (!isStreaming && allReadings.length > 0) {
-            renderChart();
-        }
-    });
-
-    // Collapsible sections
     document.querySelectorAll('.collapsible-header').forEach(header => {
         header.addEventListener('click', () => {
-            const targetId = header.getAttribute('data-target');
-            const content = document.getElementById(targetId);
-            const arrow = header.querySelector('.arrow');
-            
+            const content = document.getElementById(header.getAttribute('data-target'));
             content.classList.toggle('collapsed');
-            arrow.classList.toggle('collapsed');
+            header.querySelector('.arrow').classList.toggle('collapsed');
         });
     });
 
-    // Inicialização da UI
-    switchPage('conexao');
+    // --- Inicialização da UI ---
+    switchPage('aquisicao');
+    updateAcquisitionModeUI(acquisitionModeSelect.value);
     createToggleGrid();
+    renderChart();
 });

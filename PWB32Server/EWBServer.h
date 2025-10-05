@@ -29,43 +29,37 @@ struct VariableConfig {
 
 // Callbacks para o início e fim do streaming
 typedef void (*StreamCallback)();
+typedef void (*VariableChangeCallback)(const char* varName);
 
 class EWBServer {
 public:
   EWBServer();
   void begin(const char* deviceName, VariableConfig* vars, int numVars);
   void setStreamCallbacks(StreamCallback onStart, StreamCallback onStop);
+  void setOnVariableChangeCallback(VariableChangeCallback callback);
   void sendStreamData(const uint8_t* data, size_t length);
   bool isClientConnected();
 
-  // <-- Declarando a classe de callback como amiga
-  // Isso permite que JsonCharacteristicCallbacks acesse os métodos privados abaixo.
   friend class JsonCharacteristicCallbacks; 
 
 private:
-  // Ponteiros para as variáveis da aplicação principal
   VariableConfig* variables;
   int numVariables;
-
-  // Estado da conexão e streaming
   bool clientConnected = false;
 
-  // Callbacks
   StreamCallback onStreamStartCallback = nullptr;
   StreamCallback onStreamStopCallback = nullptr;
+  VariableChangeCallback onVariableChange = nullptr;
 
-  // Características BLE
   BLECharacteristic* jsonVariablesCharacteristic = nullptr;
   BLECharacteristic* streamDataCharacteristic = nullptr;
   BLECharacteristic* streamControlCharacteristic = nullptr;
 
-  // Funções internas
   void handleJsonGet(JsonDocument& doc);
   void handleJsonSet(JsonDocument& doc);
   void generateJsonState(JsonDocument& doc);
 };
 
-// Definição de Callbacks para o servidor BLE e características
 class MyServerCallbacks : public BLEServerCallbacks {
 public:
     MyServerCallbacks(bool* connectedFlag);
