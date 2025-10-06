@@ -9,6 +9,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let allEvents = [];
     let chartInstance = null;
     let currentAcquisitionMode = 0;
+    let eventCounter = 0; // Contador para numerar eventos em tempo real
     
     const NUM_CHANNELS = 6;
     const CHANNEL_COLORS = [ '#e91700', '#ff9d00', '#b0b305ff', '#04c755', '#0210d6', '#8601bb' ];
@@ -35,7 +36,6 @@ document.addEventListener('DOMContentLoaded', () => {
         aquisicao: document.getElementById('div-aquisicao'),
         config: document.getElementById('div-config'),
     };
-
     const statusBar = document.getElementById('status-bar');
     const btnConnect = document.getElementById('btn-connect');
     const btnDisconnect = document.getElementById('btn-disconnect');
@@ -52,7 +52,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnCopyTimes = document.getElementById('btn-copy-times');
     const btnSaveTimes = document.getElementById('btn-save-times');
     const btnSaveGraph = document.getElementById('btn-save-graph');
-    
     const acquisitionModeSelect = document.getElementById('acquisition-mode-select');
     const acquisitionModeSubtitle = document.getElementById('acquisition-mode-subtitle');
     const inputLineThickness = document.getElementById('line-thickness');
@@ -100,8 +99,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
     
-    // MODIFICADO: Esta função agora APENAS atualiza a UI e o estado local.
-    // Ela não envia mais dados por BLE.
     function updateAcquisitionModeUI(mode) {
         currentAcquisitionMode = parseInt(mode, 10);
         const selectedOption = acquisitionModeSelect.options[acquisitionModeSelect.selectedIndex];
@@ -116,6 +113,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function startReading() {
         allReadings = []; 
         allEvents = [];
+        eventCounter = 0;
         isStreaming = true;
         
         eventsTableBody.innerHTML = '<tr><td colspan="4">Adquirindo dados...</td></tr>';
@@ -141,28 +139,63 @@ document.addEventListener('DOMContentLoaded', () => {
         btnTriggerReading.classList.remove('reading');
         channelsFieldset.disabled = false;
         
-        processAndDisplayData();
+        if (currentAcquisitionMode === 0 || currentAcquisitionMode === 2) {
+             processAndDisplayData();
+        } else {
+             if (allEvents.length === 0) {
+                eventsTableBody.innerHTML = '<tr><td colspan="4">Nenhum evento detectado.</td></tr>';
+             }
+        }
     }
     
+    function appendEventsToTable(newEvents) {
+        if (eventCounter === 0) {
+            eventsTableBody.innerHTML = '';
+        }
+
+        let tableHTML = '';
+        const timeOffset = (isZeroOrigin && allEvents.length > 0) ? allEvents[0].time : 0;
+
+        for (const event of newEvents) {
+            const chIndex = event.channel - 1;
+            if (!toggleStates.channels[chIndex]) continue;
+            if (event.type === 'subida' && !toggleStates.rising[chIndex]) continue;
+            if (event.type === 'descida' && !toggleStates.falling[chIndex]) continue;
+
+            eventCounter++;
+            const adjustedTime = event.time - timeOffset;
+            const subida = event.type === 'subida' ? Math.round(adjustedTime) : '';
+            const descida = event.type === 'descida' ? Math.round(adjustedTime) : '';
+            
+            tableHTML += `<tr>
+                <td>${eventCounter}</td>
+                <td style="color:${CHANNEL_COLORS[event.channel-1]}"><b>${event.channel}</b></td>
+                <td>${subida}</td>
+                <td>${descida}</td>
+            </tr>`;
+        }
+        
+        if (tableHTML) {
+            eventsTableBody.insertAdjacentHTML('beforeend', tableHTML);
+        }
+    }
+
     function handleStreamData(packet) {
-        if (currentAcquisitionMode === 0 || currentAcquisitionMode === 2) {
+        const isStreamingMode = currentAcquisitionMode === 0 || currentAcquisitionMode === 2;
+
+        if (isStreamingMode) {
             allReadings.push(packet);
         } else {
             allEvents.push(...packet);
+            if (!groupEvents) {
+                 appendEventsToTable(packet);
+            }
         }
     }
 
     function processAndDisplayData() {
         analysisControls.style.display = 'block';
         saveControls.style.display = 'block';
-
-        const isStreamingMode = currentAcquisitionMode === 0 || currentAcquisitionMode === 2;
-        const hasData = isStreamingMode ? allReadings.length > 0 : allEvents.length > 0;
-
-        if (!hasData) {
-            eventsTableBody.innerHTML = '<tr><td colspan="4">Nenhum dado foi adquirido.</td></tr>';
-        }
-        
         renderChart();
         rebuildTimeTable();
     }
@@ -345,31 +378,40 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function rebuildTimeTable() {
+        eventCounter = 0;
         const events = findEvents();
+        
         if (events.length === 0) {
-            eventsTableBody.innerHTML = '<tr><td colspan="4">Nenhum evento detectado para a seleção atual.</td></tr>';
+            const msg = isStreaming ? 'Nenhum evento detectado para a seleção atual.' : 'Aguardando dados...';
+            eventsTableBody.innerHTML = `<tr><td colspan="4">${msg}</td></tr>`;
             return;
         }
+
         const timeOffset = (isZeroOrigin && events.length > 0) ? events[0].time : 0;
         let tableHTML = '';
+        
         if (groupEvents) {
             const groupedEvents = getGroupedEvents(events);
             groupedEvents.forEach((group, index) => {
-                let risingTime = null, fallingTime = null;
+                eventCounter++;
+                let risingTime = null;
+                let fallingTime = null;
                 group.events.forEach(event => {
                     if (event.type === 'subida') risingTime = event.time - timeOffset;
                     else if (event.type === 'descida') fallingTime = event.time - timeOffset;
                 });
-                tableHTML += `<tr><td>${index + 1}</td><td style="color:${CHANNEL_COLORS[group.channel-1]}"><b>${group.channel}</b></td><td>${risingTime !== null ? Math.round(risingTime) : ''}</td><td>${fallingTime !== null ? Math.round(fallingTime) : ''}</td></tr>`;
+                tableHTML += `<tr><td>${eventCounter}</td><td style="color:${CHANNEL_COLORS[group.channel-1]}"><b>${group.channel}</b></td><td>${risingTime !== null ? Math.round(risingTime) : ''}</td><td>${fallingTime !== null ? Math.round(fallingTime) : ''}</td></tr>`;
             });
         } else {
-            events.forEach((event, index) => {
+            events.forEach((event) => {
+                eventCounter++;
                 const adjustedTime = event.time - timeOffset;
                 const subida = event.type === 'subida' ? Math.round(adjustedTime) : '';
                 const descida = event.type === 'descida' ? Math.round(adjustedTime) : '';
-                tableHTML += `<tr><td>${index + 1}</td><td style="color:${CHANNEL_COLORS[event.channel-1]}"><b>${event.channel}</b></td><td>${subida}</td><td>${descida}</td></tr>`;
+                tableHTML += `<tr><td>${eventCounter}</td><td style="color:${CHANNEL_COLORS[event.channel-1]}"><b>${event.channel}</b></td><td>${subida}</td><td>${descida}</td></tr>`;
             });
         }
+        
         eventsTableBody.innerHTML = tableHTML;
     }
 
@@ -415,7 +457,6 @@ document.addEventListener('DOMContentLoaded', () => {
         navButtons[key].addEventListener('click', () => switchPage(key));
     });
 
-    // MODIFICADO: Agora envia o comando BLE quando o usuário muda a seleção.
     acquisitionModeSelect.addEventListener('change', (e) => {
         updateAcquisitionModeUI(e.target.value);
         if (isConnected) {
@@ -434,10 +475,8 @@ document.addEventListener('DOMContentLoaded', () => {
             inputSamplesPerChunk.value = variables.samples_per_chunk;
             inputSampleIntervalUs.value = variables.sample_interval_us;
             
-            // ATUALIZADO: Atualiza a UI primeiro
             updateAcquisitionModeUI(acquisitionModeSelect.value);
 
-            // NOVO: Cria um único objeto com TODAS as configurações iniciais
             let initialConfig = {
                 acquisition_mode: currentAcquisitionMode
             };
@@ -445,7 +484,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 initialConfig[`trigger_c${i+1}`] = triggerLevels[i];
             }
 
-            // Envia todas as configurações de uma só vez para evitar a corrida
             console.log("Enviando configuração inicial:", initialConfig);
             await ewbClient.setVariables(initialConfig);
             console.log("Configuração inicial enviada com sucesso.");

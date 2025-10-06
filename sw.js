@@ -2,6 +2,7 @@ const CACHE_NAME = 'ewb-cache-v5';
 const urlsToCache = [
   '/',
   '/index.html',
+  '/styles.css',
   '/main.js',
   '/EWBclient.js',
   '/manifest.json',

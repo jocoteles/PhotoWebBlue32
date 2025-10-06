@@ -1,13 +1,13 @@
 /**
  * @file PWB32Server.ino
  * @brief Aplicação para o sistema PhotoWebBlue32 (PWB32).
- * @version 2.0 - Adicionado suporte a múltiplos modos de aquisição e triggers remotos.
+ * @version 2.1 - Adicionado envio de eventos em tempo real.
  */
 
 #include "EWBServer.h"
 
 // --- Configuração do Dispositivo ---
-const char* DEVICE_NAME = "Photogate32_1";
+const char* DEVICE_NAME = "PhotoGate-1";
 EWBServer ewbServer;
 
 // --- Ponteiro de Função para o Loop de Aquisição ---
@@ -88,7 +88,7 @@ uint16_t simGate(uint16_t channel) {
 void setup() {
   Serial.begin(115200);
   delay(500);
-  Serial.println("\n--- PWB32 Application Setup v2.0 ---");
+  Serial.println("\n--- PWB32 Application Setup v2.1 ---");
   
   for(int i=0; i<NUM_CHANNELS; i++) pinMode(ANALOG_PINS[i], INPUT);
 
@@ -113,6 +113,7 @@ void loop() {
 }
 
 // --- Implementação dos Modos de Aquisição ---
+
 void loop_streaming_real() {
     uint32_t currentTimeMs = millis() - streamStartTimeMs;
     
@@ -122,39 +123,38 @@ void loop_streaming_real() {
     
     sensorDataBuffer[currentBufferIndex++] = packet;
 
-    if (currentBufferIndex >= configurableVariables[0].intValue) {
+    if (currentBufferIndex >= configurableVariables[0].intValue) { // samples_per_chunk
       size_t chunkSize = currentBufferIndex * sizeof(SensorDataPacket);
       ewbServer.sendStreamData((uint8_t*)sensorDataBuffer, chunkSize);
       currentBufferIndex = 0;
     }
-    delayMicroseconds(configurableVariables[1].intValue);
+    delayMicroseconds(configurableVariables[1].intValue); // sample_interval_us
 }
 
 void loop_tempos_real() {
     uint32_t currentTimeMs = millis() - streamStartTimeMs;
-    uint8_t eventsFound = 0;
 
+    // 1. Detecta todos os eventos que ocorreram neste ciclo
     for(int ch=0; ch<NUM_CHANNELS; ch++) {
         uint16_t currentReading = analogRead(ANALOG_PINS[ch]);
         uint16_t trigger = configurableVariables[3+ch].intValue;
 
-        if (lastReadings[ch] < trigger && currentReading >= trigger) {
+        if (lastReadings[ch] < trigger && currentReading >= trigger) { // Subida
             eventDataBuffer[currentBufferIndex++] = { (uint8_t)(ch+1), 1, currentTimeMs };
-            eventsFound++;
-        } else if (lastReadings[ch] > trigger && currentReading <= trigger) {
+        } else if (lastReadings[ch] > trigger && currentReading <= trigger) { // Descida
             eventDataBuffer[currentBufferIndex++] = { (uint8_t)(ch+1), 0, currentTimeMs };
-            eventsFound++;
         }
         lastReadings[ch] = currentReading;
     }
 
-    // Envia o buffer se estiver cheio ou se um número razoável de eventos foi encontrado
-    // Isso evita enviar pacotes muito pequenos com muita frequência
-    if (currentBufferIndex > 0 && (eventsFound > 5 || currentBufferIndex >= configurableVariables[0].intValue)) {
+    // 2. Se algum evento foi encontrado, envia o buffer e o limpa
+    if (currentBufferIndex > 0) {
         size_t chunkSize = currentBufferIndex * sizeof(EventDataPacket);
         ewbServer.sendStreamData((uint8_t*)eventDataBuffer, chunkSize);
         currentBufferIndex = 0;
     }
+    
+    // 3. Aguarda o intervalo de amostragem
     delayMicroseconds(configurableVariables[1].intValue);
 }
 
@@ -177,27 +177,28 @@ void loop_streaming_sim() {
 
 void loop_tempos_sim() {
     uint32_t currentTimeMs = millis() - streamStartTimeMs;
-    uint8_t eventsFound = 0;
 
+    // 1. Detecta eventos simulados
     for(int ch=0; ch<NUM_CHANNELS; ch++) {
         uint16_t currentReading = simGate(ch);
         uint16_t trigger = configurableVariables[3+ch].intValue;
 
         if (lastReadings[ch] < trigger && currentReading >= trigger) {
             eventDataBuffer[currentBufferIndex++] = { (uint8_t)(ch+1), 1, currentTimeMs };
-            eventsFound++;
         } else if (lastReadings[ch] > trigger && currentReading <= trigger) {
             eventDataBuffer[currentBufferIndex++] = { (uint8_t)(ch+1), 0, currentTimeMs };
-            eventsFound++;
         }
         lastReadings[ch] = currentReading;
     }
-
-    if (currentBufferIndex > 0 && (eventsFound > 5 || currentBufferIndex >= configurableVariables[0].intValue)) {
+    
+    // 2. Se algum evento foi encontrado, envia o buffer e o limpa
+    if (currentBufferIndex > 0) {
         size_t chunkSize = currentBufferIndex * sizeof(EventDataPacket);
         ewbServer.sendStreamData((uint8_t*)eventDataBuffer, chunkSize);
         currentBufferIndex = 0;
     }
+
+    // 3. Aguarda
     delayMicroseconds(configurableVariables[1].intValue);
 }
 
