@@ -21,7 +21,6 @@
 
         <!-- DIV CONEXÃO -->
         <div id="div-conexao" class="page-div">
-            <h2>Conexão</h2>
             <div id="status-bar" class="status disconnected">Desconectado</div>
             <div class="control-group">
                 <button id="btn-connect">Conectar</button>
@@ -30,11 +29,13 @@
             <p>Dispositivo conectado: <strong id="device-name-display">Nenhum</strong></p>
         </div>
 
-        <!-- DIV AQUISIÇÃO (ANTIGA CANAIS) -->
+        <!-- DIV AQUISIÇÃO -->
         <div id="div-aquisicao" class="page-div">
-             <h2 style="margin-bottom: 5px;">Aquisição</h2>
-             <h3 id="acquisition-mode-subtitle" style="text-align: center; margin-top: 0; color: #555; font-weight: normal;">Modo: Nenhum</h3>
-             <button id="btn-trigger-reading" disabled>Disparar Leitura</button>
+             <h3 id="acquisition-mode-subtitle" style="text-align: center; margin-top: 0; color: #555; font-weight: bold;">Modo: Nenhum</h3>
+             <button id="btn-trigger-reading" style="font-size: 1.2rem; font-weight: bold;" disabled>
+                <span class="spinner"></span>
+                <span class="btn-text">Disparar Leitura</span>
+            </button>
              
              <div id="data-acquisition-section">
                 <div class="collapsible-section">
@@ -113,8 +114,6 @@
 
         <!-- DIV CONFIG -->
         <div id="div-config" class="page-div">
-            <h2>Configurações</h2>
-            
             <div class="control-group">
                 <label for="acquisition-mode-select" style="font-weight: bold;">Modo de Aquisição</label>
                 <select id="acquisition-mode-select" style="width: 100%; padding: 8px; font-size: 16px; box-sizing: border-box;" disabled>

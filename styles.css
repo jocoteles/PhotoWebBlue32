@@ -17,7 +17,7 @@ h3 { text-align: center; margin-top: 0; color: #555; font-weight: normal; }
 
 
 .top-nav { display: flex; margin-bottom: 20px; }
-.nav-btn { flex: 1; padding: 12px; font-size: 16px; border: none; cursor: pointer; transition: background-color 0.3s, color 0.3s; }
+.nav-btn { flex: 1; padding: 12px; font-size: 1.2rem; font-weight: bold; border: none; cursor: pointer; transition: background-color 0.3s, color 0.3s; }
 .nav-btn.active { background-color: #34495e; color: white; }
 .nav-btn.inactive { background-color: #ecf0f1; color: #2c3e50; }
 
@@ -124,43 +124,69 @@ input[type="range"], input[type="number"], input[type="text"], select { width: 1
 
 /* --- Botões de Análise --- */
 .analysis-buttons { 
-    display: flex; 
-    gap: 10px; 
-    margin-top: 15px;
+    display: grid; 
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 2px;     
     width: 100%;
 }
-.analysis-buttons button { 
-    flex: 1 1 0;
-    margin: 0;
-}
-@media (max-width: 700px) {
-    .analysis-buttons { flex-direction: column; }
+@media (max-width: 600px) {
+    .analysis-buttons { grid-template-columns: 1fr; }
     .analysis-buttons button { width: 100%; }
 }
-#btn-zero-origin { background-color: #9b59b6; }
+#btn-zero-origin { background-color: #800cad; }
 #btn-zero-origin:hover { background-color: #8e44ad; }
-#btn-show-events { background-color: #e67e22; }
+#btn-show-events { background-color: #1e4cca; }
 #btn-show-events:hover { background-color: #d35400; }
-#btn-group-events { background-color: #16a085; }
+#btn-group-events { background-color: #9e3529; }
 #btn-group-events:hover { background-color: #138d75; }
 
 /* --- Botões de Salvamento --- */
 .save-buttons { 
-    display: flex; 
-    gap: 10px;
+    display: grid; 
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 2px;     
     width: 100%;
 }
-.save-buttons button { 
-    flex: 1 1 0;
-    margin: 0;
-}
 @media (max-width: 600px) {
-    .save-buttons { flex-direction: column; }
+    .save-buttons  { grid-template-columns: 1fr; }
     .save-buttons button { width: 100%; }
 }
-#btn-copy-times { background-color: #3498db; }
+#btn-copy-times { background-color: #800cad; }
 #btn-copy-times:hover { background-color: #2980b9; }
-#btn-save-times { background-color: #27ae60; }
+#btn-save-times { background-color: #1e4cca; }
 #btn-save-times:hover { background-color: #229954; }
-#btn-save-graph { background-color: #e74c3c; }
+#btn-save-graph { background-color: #9e3529; }
 #btn-save-graph:hover { background-color: #c0392b; }
+
+/* --- Estilos do Botão de Aquisição com Spinner --- */
+
+/* Alinha o spinner e o texto no centro do botão */
+#btn-trigger-reading {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px; /* Espaço entre o spinner e o texto */
+}
+
+/* Define a aparência do spinner: um círculo com borda */
+.spinner {
+    display: none; /* Oculto por padrão */
+    width: 20px;
+    height: 20px;
+    border: 3px solid rgba(255, 255, 255, 0.3); /* Borda de fundo transparente */
+    border-top-color: #ffffff; /* A parte que "gira" */
+    border-radius: 50%;
+    animation: spin 1s ease-in-out infinite; /* Aplica a animação */
+}
+
+/* Mostra o spinner apenas quando a classe .reading está ativa no botão */
+#btn-trigger-reading.reading .spinner {
+    display: block;
+}
+
+/* Define a animação de rotação */
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}

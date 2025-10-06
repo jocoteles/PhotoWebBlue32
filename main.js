@@ -44,6 +44,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const channelsFieldset = document.getElementById('channels-fieldset');
     const toggleGridBody = document.querySelector('.toggle-grid tbody');
     const eventsTableBody = document.querySelector('#events-table tbody');
+    const btnTriggerReadingText = document.querySelector('#btn-trigger-reading .btn-text');
     const analysisControls = document.getElementById('analysis-controls');
     const saveControls = document.getElementById('save-controls');
     const btnZeroOrigin = document.getElementById('btn-zero-origin');
@@ -118,7 +119,8 @@ document.addEventListener('DOMContentLoaded', () => {
         
         eventsTableBody.innerHTML = '<tr><td colspan="4">Adquirindo dados...</td></tr>';
         
-        btnTriggerReading.textContent = "Interromper Leitura";
+        // Modifique esta linha
+        btnTriggerReadingText.textContent = "Interromper Leitura"; 
         btnTriggerReading.classList.add('reading');
         channelsFieldset.disabled = true;
         
@@ -135,16 +137,17 @@ document.addEventListener('DOMContentLoaded', () => {
         clearTimeout(maxAcquisitionTimer);
         await ewbClient.stopStream();
 
-        btnTriggerReading.textContent = "Disparar Leitura";
+        // Modifique esta linha
+        btnTriggerReadingText.textContent = "Disparar Leitura";
         btnTriggerReading.classList.remove('reading');
         channelsFieldset.disabled = false;
         
         if (currentAcquisitionMode === 0 || currentAcquisitionMode === 2) {
-             processAndDisplayData();
+            processAndDisplayData();
         } else {
-             if (allEvents.length === 0) {
+            if (allEvents.length === 0) {
                 eventsTableBody.innerHTML = '<tr><td colspan="4">Nenhum evento detectado.</td></tr>';
-             }
+            }
         }
     }
     
@@ -194,8 +197,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function processAndDisplayData() {
-        analysisControls.style.display = 'block';
-        saveControls.style.display = 'block';
+        analysisControls.style.display = 'grid';        
+        saveControls.style.display = 'grid';        
         renderChart();
         rebuildTimeTable();
     }
@@ -364,13 +367,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     group.events.forEach(event => {
                         const uniqueId = `group_${groupIndex}_event_${event.time}`;
                         annotations[`event_${uniqueId}`] = { type: 'point', xValue: event.time, yValue: triggerLevels[event.channel - 1], backgroundColor: CHANNEL_COLORS[event.channel - 1], radius: parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--event-radius')) };
-                        annotations[`eventLabel_${uniqueId}`] = { type: 'label', xValue: event.time, yValue: triggerLevels[event.channel - 1], content: (groupIndex + 1).toString(), font: { size: 10 }, color: 'black', yAdjust: -10 };
+                        annotations[`eventLabel_${uniqueId}`] = { type: 'label', xValue: event.time, yValue: triggerLevels[event.channel - 1], content: (groupIndex + 1).toString(), font: { size: 13 }, color: 'black', yAdjust: -10, xAdjust: 5 };
                     });
                 });
             } else {
                 events.forEach((event, index) => {
                     annotations[`event${index}`] = { type: 'point', xValue: event.time, yValue: triggerLevels[event.channel - 1], backgroundColor: CHANNEL_COLORS[event.channel - 1], radius: parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--event-radius')) };
-                    annotations[`eventLabel${index}`] = { type: 'label', xValue: event.time, yValue: triggerLevels[event.channel - 1], content: (index + 1).toString(), font: { size: 10 }, color: 'black', yAdjust: -10 };
+                    annotations[`eventLabel${index}`] = { type: 'label', xValue: event.time, yValue: triggerLevels[event.channel - 1], content: (index + 1).toString(), font: { size: 13 }, color: 'black', yAdjust: -10, xAdjust: 5 };
                 });
             }
         }
