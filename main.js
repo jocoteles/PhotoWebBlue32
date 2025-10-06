@@ -190,8 +190,11 @@ document.addEventListener('DOMContentLoaded', () => {
             allReadings.push(packet);
         } else {
             allEvents.push(...packet);
-            if (!groupEvents) {
-                 appendEventsToTable(packet);
+
+            if (groupEvents) {
+                rebuildTimeTable();
+            } else {
+                appendEventsToTable(packet);
             }
         }
     }
