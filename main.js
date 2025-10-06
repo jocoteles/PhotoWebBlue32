@@ -499,11 +499,17 @@ document.addEventListener('DOMContentLoaded', () => {
     
     btnTriggerReading.addEventListener('click', () => { isStreaming ? stopReading() : startReading(); });
     
-    btnZeroOrigin.addEventListener('click', () => { isZeroOrigin = !isZeroOrigin; btnZeroOrigin.classList.toggle('enabled', isZeroOrigin); rebuildTimeTable(); });
+    btnZeroOrigin.addEventListener('click', () => { 
+        isZeroOrigin = !isZeroOrigin;
+        btnZeroOrigin.classList.toggle('enabled', isZeroOrigin);
+        btnZeroOrigin.textContent = isZeroOrigin ? 'Recuperar origem temporal' : 'Zerar origem temporal';
+        rebuildTimeTable();
+    });
 
     btnShowEvents.addEventListener('click', () => {
         showEventsOnGraph = !showEventsOnGraph;
         btnShowEvents.classList.toggle('enabled', showEventsOnGraph);
+        btnShowEvents.textContent = showEventsOnGraph ? 'Ocultar eventos no gráfico' : 'Mostrar eventos no gráfico';
         if(chartInstance) {
             chartInstance.options.plugins.annotation.annotations = buildAnnotations();
             chartInstance.update('none');
@@ -513,6 +519,7 @@ document.addEventListener('DOMContentLoaded', () => {
     btnGroupEvents.addEventListener('click', () => {
         groupEvents = !groupEvents;
         btnGroupEvents.classList.toggle('enabled', groupEvents);
+        btnGroupEvents.textContent = groupEvents ? 'Separar subida/descida' : 'Juntar subida/descida';
         rebuildTimeTable();
         if(showEventsOnGraph && chartInstance) {
             chartInstance.options.plugins.annotation.annotations = buildAnnotations();
@@ -567,6 +574,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (type === 'd') toggleStates.falling[ch] = !toggleStates.falling[ch];
             target.classList.toggle('enabled');
             rebuildTimeTable();
+            if (chartInstance && showEventsOnGraph) {
+                chartInstance.options.plugins.annotation.annotations = buildAnnotations();
+                chartInstance.update('none');
+            }
         }
     });
 
@@ -574,9 +585,35 @@ document.addEventListener('DOMContentLoaded', () => {
     btnSaveTimes.addEventListener('click', () => downloadCSV(generateCSV(false), 'tempos_photogate.csv'));
     btnSaveGraph.addEventListener('click', () => downloadCSV(generateCSV(true), 'dados_brutos_photogate.csv'));
 
-    inputLineThickness.addEventListener('input', (e) => { document.documentElement.style.setProperty('--line-thickness', `${2 * e.target.value / 100}px`); document.getElementById('line-thickness-value').textContent = `${e.target.value}%`; });
-    inputTriggerThickness.addEventListener('input', (e) => { document.documentElement.style.setProperty('--trigger-thickness', `${1 * e.target.value / 100}px`); document.getElementById('trigger-thickness-value').textContent = `${e.target.value}%`; });
-    inputEventRadius.addEventListener('input', (e) => { document.documentElement.style.setProperty('--event-radius', `${4 * e.target.value / 100}px`); document.getElementById('event-radius-value').textContent = `${e.target.value}%`; });
+    inputLineThickness.addEventListener('input', (e) => {
+        const newThickness = `${2 * e.target.value / 100}px`;
+        document.documentElement.style.setProperty('--line-thickness', newThickness);
+        document.getElementById('line-thickness-value').textContent = `${e.target.value}%`;
+        if (chartInstance) {
+            chartInstance.data.datasets.forEach(dataset => {
+                dataset.borderWidth = parseFloat(newThickness);
+            });
+            chartInstance.update('none');
+        }
+    });
+
+    inputTriggerThickness.addEventListener('input', (e) => {
+        document.documentElement.style.setProperty('--trigger-thickness', `${1 * e.target.value / 100}px`);
+        document.getElementById('trigger-thickness-value').textContent = `${e.target.value}%`;
+        if (chartInstance) {
+            chartInstance.options.plugins.annotation.annotations = buildAnnotations();
+            chartInstance.update('none');
+        }
+    });
+
+    inputEventRadius.addEventListener('input', (e) => {
+        document.documentElement.style.setProperty('--event-radius', `${4 * e.target.value / 100}px`);
+        document.getElementById('event-radius-value').textContent = `${e.target.value}%`;
+        if (chartInstance && showEventsOnGraph) {
+            chartInstance.options.plugins.annotation.annotations = buildAnnotations();
+            chartInstance.update('none');
+        }
+    });
     inputChartHeight.addEventListener('input', (e) => { document.documentElement.style.setProperty('--chart-height', `${400 * e.target.value / 100}px`); document.getElementById('chart-height-value').textContent = `${e.target.value}%`; });
     inputMaxAcquisitionTime.addEventListener('input', (e) => { document.getElementById('max-acquisition-value').textContent = e.target.value; });
     inputDataDecimation.addEventListener('input', (e) => { document.getElementById('decimation-value').textContent = e.target.value; if (!isStreaming && allReadings.length > 0) renderChart(); });
@@ -596,7 +633,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // --- Inicialização da UI ---
-    switchPage('aquisicao');
+    switchPage('conexao');
     updateAcquisitionModeUI(acquisitionModeSelect.value);
     createToggleGrid();
     renderChart();
