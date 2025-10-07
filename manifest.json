@@ -3,14 +3,14 @@
   "name": "PhotoWebBlue32 Control",
   "icons": [
     {
-      "src": "icons/PWB32icon-192x192.png",
-      "type": "image/png",
+      "src": "icons/PWB32icon-192x192.svg",
+      "type": "image/svg+xml",
       "sizes": "192x192",
       "purpose": "any maskable"
     },
     {
-      "src": "icons/PWB32icon-512x512.png",
-      "type": "image/png",
+      "src": "icons/PWB32icon-512x512.svg",
+      "type": "image/svg+xml",
       "sizes": "512x512",
       "purpose": "any maskable"
     }

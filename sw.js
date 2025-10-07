@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ewb-cache-v5';
+const CACHE_NAME = 'ewb-cache-v6';
 const urlsToCache = [
   '/',
   '/index.html',
@@ -6,8 +6,8 @@ const urlsToCache = [
   '/main.js',
   '/EWBclient.js',
   '/manifest.json',
-  '/icons/PWB32icon-192x192.png',
-  '/icons/PWB32icon-512x512.png'
+  '/icons/PWB32icon-192x192.svg',
+  '/icons/PWB32icon-512x512.svg'
 ];
 
 self.addEventListener('install', event => {

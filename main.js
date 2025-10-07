@@ -579,6 +579,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (type === 's') toggleStates.rising[ch] = !toggleStates.rising[ch];
             if (type === 'd') toggleStates.falling[ch] = !toggleStates.falling[ch];
             target.classList.toggle('enabled');
+            target.style.opacity = target.classList.contains('enabled') ? 1 : 0.4;
             rebuildTimeTable();
             if (chartInstance && showEventsOnGraph) {
                 chartInstance.options.plugins.annotation.annotations = buildAnnotations();

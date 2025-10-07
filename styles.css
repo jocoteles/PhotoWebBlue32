@@ -37,9 +37,13 @@ label { display: block; margin-bottom: 8px; font-weight: bold; }
 input[type="range"], input[type="number"], input[type="text"], select { width: 100%; box-sizing: border-box; padding: 8px; }
 
 #btn-trigger-reading { 
-    width: 100%; 
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px; /* Espaço entre spinner e texto */
+    width: 100%;
     background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
-    margin-bottom: 15px;
+    margin: 0 auto 15px auto; /* <-- Centralização exata */
     padding: 12px;
     font-size: 18px;
     font-weight: 500;
@@ -122,41 +126,36 @@ input[type="range"], input[type="number"], input[type="text"], select { width: 1
     filter: brightness(1.1) drop-shadow(0 0 0 black) drop-shadow(1px 0 0 black) drop-shadow(-1px 0 0 black) drop-shadow(0 1px 0 black) drop-shadow(0 -1px 0 black) drop-shadow(1px 1px 0 black) drop-shadow(-1px -1px 0 black);
 }
 
-/* --- Botões de Análise --- */
+/* --- Botões de Análise (Tabela de Tempos) --- */
 .analysis-buttons { 
     display: grid; 
     grid-template-columns: 1fr 1fr 1fr;
-    gap: 2px;     
+    gap: 4px;
     width: 100%;
 }
-@media (max-width: 600px) {
-    .analysis-buttons { grid-template-columns: 1fr; }
-    .analysis-buttons button { width: 100%; }
-}
-#btn-zero-origin { background-color: #800cad; }
-#btn-zero-origin:hover { background-color: #8e44ad; }
-#btn-show-events { background-color: #1e4cca; }
-#btn-show-events:hover { background-color: #d35400; }
-#btn-group-events { background-color: #9e3529; }
-#btn-group-events:hover { background-color: #138d75; }
+#btn-zero-origin  { background-color: #5DADE2; }  /* Azul suave */
+#btn-zero-origin.enabled { background-color: #3498DB; }
+#btn-show-events  { background-color: #58D68D; }  /* Verde */
+#btn-show-events.enabled { background-color: #28B463; }
+#btn-group-events { background-color: #F5B041; }  /* Amarelo-alaranjado */
+#btn-group-events.enabled { background-color: #D68910; }
 
 /* --- Botões de Salvamento --- */
 .save-buttons { 
     display: grid; 
     grid-template-columns: 1fr 1fr 1fr;
-    gap: 2px;     
+    gap: 4px;
     width: 100%;
 }
-@media (max-width: 600px) {
-    .save-buttons  { grid-template-columns: 1fr; }
-    .save-buttons button { width: 100%; }
+#btn-copy-times { background-color: #5DADE2; }   /* Azul suave */
+#btn-save-times { background-color: #58D68D; }   /* Verde */
+#btn-save-graph { background-color: #F5B041; }   /* Amarelo */
+button:hover:not(:disabled) { filter: brightness(0.9); }
+
+.analysis-buttons button,
+.save-buttons button {
+    font-weight: bold;
 }
-#btn-copy-times { background-color: #800cad; }
-#btn-copy-times:hover { background-color: #2980b9; }
-#btn-save-times { background-color: #1e4cca; }
-#btn-save-times:hover { background-color: #229954; }
-#btn-save-graph { background-color: #9e3529; }
-#btn-save-graph:hover { background-color: #c0392b; }
 
 /* --- Estilos do Botão de Aquisição com Spinner --- */
 
