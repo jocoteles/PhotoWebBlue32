@@ -14,6 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const NUM_CHANNELS = 6;
     const CHANNEL_COLORS = [ '#e91700', '#ff9d00', '#b0b305ff', '#04c755', '#0210d6', '#8601bb' ];
     const DEFAULT_TRIGGER = 2048;
+    const ADVANCED_PASS = 'bolt';
 
     let triggerLevels = Array(NUM_CHANNELS).fill(DEFAULT_TRIGGER);
     let toggleStates = {
@@ -625,7 +626,16 @@ document.addEventListener('DOMContentLoaded', () => {
     inputMaxAcquisitionTime.addEventListener('input', (e) => { document.getElementById('max-acquisition-value').textContent = e.target.value; });
     inputDataDecimation.addEventListener('input', (e) => { document.getElementById('decimation-value').textContent = e.target.value; if (!isStreaming && allReadings.length > 0) renderChart(); });
 
-    btnAdvanced.addEventListener('click', () => { const pass = prompt("Digite a senha de administrador:", ""); if (pass === "bolt") { advancedSettingsDiv.style.display = 'block'; } else if (pass !== null) { alert("Senha incorreta."); } });
+    btnAdvanced.addEventListener('click', () => {
+        const pass = prompt("Digite a senha de administrador:", "");
+        if (pass === ADVANCED_PASS) {
+            advancedSettingsDiv.style.display = 'block';
+            advancedSettingsDiv.querySelectorAll('input').forEach(inp => inp.disabled = false);
+        } else if (pass !== null) {
+            alert("Senha incorreta.");
+        }
+    });
+
 
     const sendAdvancedSetting = (key, value) => { if (!isConnected) { alert('Conecte ao dispositivo primeiro.'); return; } ewbClient.setVariables({ [key]: value }).then(() => console.log(`${key} atualizado para ${value}`)).catch(err => console.error(`Falha ao atualizar ${key}`, err)); };
     inputSamplesPerChunk.addEventListener('change', (e) => sendAdvancedSetting('samples_per_chunk', parseInt(e.target.value, 10)));
