@@ -23,6 +23,7 @@ class EWBClient {
 
         this._streamDataListener = this._handleStreamDataEvent.bind(this);
         this._partialBuffer = new Uint8Array(0);
+        this._lastTime = -1;
     }
 
     async connect() {
@@ -142,54 +143,79 @@ class EWBClient {
         console.log('Stream notifications stopped.');
     }
     
-    _handleStreamDataEvent(event) {
+     _handleStreamDataEvent(event) {
         if (!this.onStreamData || !this.getModeCallback) return;
 
         const mode = this.getModeCallback();
-        const value = new Uint8Array(event.target.value.buffer);
+        const newData = new Uint8Array(event.target.value.buffer);
 
-        // Define o tamanho esperado de cada pacote
-        const packetSize = (mode === 0 || mode === 2) ? 16 : 6;
-
-        // Concatena fragmentos antigos com os novos
-        const combined = new Uint8Array(this._partialBuffer.length + value.length);
+        // Reanexar fragmentos
+        const combined = new Uint8Array(this._partialBuffer.length + newData.length);
         combined.set(this._partialBuffer);
-        combined.set(value, this._partialBuffer.length);
+        combined.set(newData, this._partialBuffer.length);
 
+        const packetSize = (mode === 0 || mode === 2) ? 16 : 6;
         let offset = 0;
-        while (offset + packetSize <= combined.length) {
-            const slice = combined.slice(offset, offset + packetSize);
-            this._processFullPacket(slice, mode);
-            offset += packetSize;
+        const maxIterations = 1000; // prevenção de loop infinito
+        let iterations = 0;
+
+        while (offset + packetSize <= combined.length && iterations++ < maxIterations) {
+            const packetBytes = combined.slice(offset, offset + packetSize);
+            const processed = this._processFullPacket(packetBytes, mode);
+            if (processed) offset += packetSize;
+            else break; // algo inconsistente, esperar mais dados
         }
 
-        // Guarda o resto para o próximo evento (fragmento incompleto)
+        // Armazena bytes restantes
         this._partialBuffer = combined.slice(offset);
+
+        // Caso o buffer fique muito grande (erro de sincronização), resetar
+        if (this._partialBuffer.length > 128) {
+            console.warn("⚠️ Buffer BLE fora de sincronia — resetando.");
+            this._partialBuffer = new Uint8Array(0);
+        }
     }
 
     _processFullPacket(slice, mode) {
         const dataView = new DataView(slice.buffer);
+        try {
+            if (mode === 0 || mode === 2) {
+                // 6x uint16 + 1x uint32 = 16 bytes
+                const time = dataView.getUint32(12, true);
+                if (time === this._lastTime) return true; // duplicado — ignora
+                this._lastTime = time;
 
-        if (mode === 0 || mode === 2) {
-            // Pacote de streaming de níveis
-            const packet = {
-                reading1: dataView.getUint16(0, true),
-                reading2: dataView.getUint16(2, true),
-                reading3: dataView.getUint16(4, true),
-                reading4: dataView.getUint16(6, true),
-                reading5: dataView.getUint16(8, true),
-                reading6: dataView.getUint16(10, true),
-                time_ms: dataView.getUint32(12, true)
-            };
-            this.onStreamData(packet);
-        } else {
-            // Pacote de tempos de evento
-            const eventPacket = {
-                channel: dataView.getUint8(0),
-                type: dataView.getUint8(1) === 1 ? 'subida' : 'descida',
-                time: dataView.getUint32(2, true)
-            };
-            this.onStreamData([eventPacket]);
+                const packet = {
+                    reading1: dataView.getUint16(0, true),
+                    reading2: dataView.getUint16(2, true),
+                    reading3: dataView.getUint16(4, true),
+                    reading4: dataView.getUint16(6, true),
+                    reading5: dataView.getUint16(8, true),
+                    reading6: dataView.getUint16(10, true),
+                    time_ms: time
+                };
+                this.onStreamData(packet);
+                return true;
+            } else {
+                // Evento (1+1+4 = 6 bytes)
+                const channel = dataView.getUint8(0);
+                const typeVal = dataView.getUint8(1);
+                const time = dataView.getUint32(2, true);
+                if (time === this._lastTime && mode >= 1) return true;
+                this._lastTime = time;
+
+                const eventPacket = {
+                    channel,
+                    type: typeVal === 1 ? 'subida' : 'descida',
+                    time
+                };
+                this.onStreamData([eventPacket]);
+                return true;
+            }
+        } catch (err) {
+            console.warn("Erro ao processar pacote BLE:", err);
+            return false;
         }
     }
+
 }
