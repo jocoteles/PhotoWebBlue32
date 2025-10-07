@@ -157,6 +157,13 @@ button:hover:not(:disabled) { filter: brightness(0.9); }
     font-weight: bold;
 }
 
+@media (max-width: 600px) {
+    .analysis-buttons { grid-template-columns: 1fr; }
+    .analysis-buttons button { width: 100%; }
+    .save-buttons  { grid-template-columns: 1fr; }
+    .save-buttons button { width: 100%; }
+}
+
 /* --- Estilos do Botão de Aquisição com Spinner --- */
 
 /* Alinha o spinner e o texto no centro do botão */
