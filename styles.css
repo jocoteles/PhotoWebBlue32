@@ -133,11 +133,11 @@ input[type="range"], input[type="number"], input[type="text"], select { width: 1
     gap: 4px;
     width: 100%;
 }
-#btn-zero-origin  { background-color: #5DADE2; }  /* Azul suave */
+#btn-zero-origin  { background-color: #226491; }  /* Azul suave */
 #btn-zero-origin.enabled { background-color: #3498DB; }
-#btn-show-events  { background-color: #58D68D; }  /* Verde */
+#btn-show-events  { background-color: #1c8046; }  /* Verde */
 #btn-show-events.enabled { background-color: #28B463; }
-#btn-group-events { background-color: #F5B041; }  /* Amarelo-alaranjado */
+#btn-group-events { background-color: #8f5d0c; }  /* Amarelo-alaranjado */
 #btn-group-events.enabled { background-color: #D68910; }
 
 /* --- Botões de Salvamento --- */
@@ -147,9 +147,9 @@ input[type="range"], input[type="number"], input[type="text"], select { width: 1
     gap: 4px;
     width: 100%;
 }
-#btn-copy-times { background-color: #5DADE2; }   /* Azul suave */
-#btn-save-times { background-color: #58D68D; }   /* Verde */
-#btn-save-graph { background-color: #F5B041; }   /* Amarelo */
+#btn-copy-times { background-color: #3498DB; }   /* Azul suave */
+#btn-save-times { background-color: #28B463; }   /* Verde */
+#btn-save-graph { background-color: #D68910; }   /* Amarelo */
 button:hover:not(:disabled) { filter: brightness(0.9); }
 
 .analysis-buttons button,
