@@ -626,9 +626,12 @@ document.addEventListener('DOMContentLoaded', () => {
     inputMaxAcquisitionTime.addEventListener('input', (e) => { document.getElementById('max-acquisition-value').textContent = e.target.value; });
     inputDataDecimation.addEventListener('input', (e) => { document.getElementById('decimation-value').textContent = e.target.value; if (!isStreaming && allReadings.length > 0) renderChart(); });
 
+    let advancedUnlocked = false;
+
     btnAdvanced.addEventListener('click', () => {
         const pass = prompt("Digite a senha de administrador:", "");
-        if (pass === ADVANCED_PASS) {
+        if (pass === "bolt") {
+            advancedUnlocked = true;
             advancedSettingsDiv.style.display = 'block';
             advancedSettingsDiv.querySelectorAll('input').forEach(inp => inp.disabled = false);
         } else if (pass !== null) {
@@ -636,8 +639,30 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    const sendAdvancedSetting = (key, value) => {
+        if (!isConnected) {
+            alert('Conecte ao dispositivo primeiro.');
+            return;
+        }
+        if (!advancedUnlocked) {
+            alert('Insira a senha de administrador para alterar variáveis avançadas.');
+            return;
+        }
 
-    const sendAdvancedSetting = (key, value) => { if (!isConnected) { alert('Conecte ao dispositivo primeiro.'); return; } ewbClient.setVariables({ [key]: value }).then(() => console.log(`${key} atualizado para ${value}`)).catch(err => console.error(`Falha ao atualizar ${key}`, err)); };
+        ewbClient.setVariables({ [key]: value })
+            .then(() => {
+                console.log(`${key} atualizado para ${value}`);
+                alert(`Variável "${key}" atualizada com sucesso.`);
+
+                advancedUnlocked = false;
+                advancedSettingsDiv.querySelectorAll('input').forEach(inp => inp.disabled = true);
+            })
+            .catch(err => {
+                console.error(`Falha ao atualizar ${key}`, err);
+                alert("Falha ao enviar valor. Verifique a conexão BLE.");
+            });
+    };
+
     inputSamplesPerChunk.addEventListener('change', (e) => sendAdvancedSetting('samples_per_chunk', parseInt(e.target.value, 10)));
     inputSampleIntervalUs.addEventListener('change', (e) => sendAdvancedSetting('sample_interval_us', parseInt(e.target.value, 10)));
 
