@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PhotoWebBlue32</title>
+    <title>PhotoWebBluetooth32</title>
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#2c3e50"/>
     <link rel="stylesheet" href="styles.css"> 
@@ -11,7 +11,7 @@
 <body>
 
     <div class="main-container">
-        <h1>PhotoWebBlue32</h1>
+        <h2 style="margin: 5px;">PhotoWebBluetooth32</h2>
         
         <nav class="top-nav">
             <button id="nav-btn-conexao" class="nav-btn">Conexão</button>
@@ -22,23 +22,22 @@
         <!-- DIV CONEXÃO -->
         <div id="div-conexao" class="page-div">
             <div id="status-bar" class="status disconnected">Desconectado</div>
-            <div class="control-group">
+            <div class="control-group connection-buttons">
                 <button id="btn-connect">Conectar</button>
                 <button id="btn-disconnect" disabled>Desconectar</button>
             </div>
-            <p>Dispositivo conectado: <strong id="device-name-display">Nenhum</strong></p>
         </div>
 
         <!-- DIV AQUISIÇÃO -->
         <div id="div-aquisicao" class="page-div">
-             <h3 id="acquisition-mode-subtitle" style="text-align: center; margin-top: 0; color: #555; font-weight: bold;">Modo: Nenhum</h3>
+             <h3 id="acquisition-mode-subtitle" style="text-align: center; margin-top: -12px; margin-bottom: 7px; color: #555; font-weight: bold;">Modo: Nenhum</h3>
              <button id="btn-trigger-reading" style="font-size: 1.2rem; font-weight: bold; height: 3em" disabled>
                 <span class="spinner"></span>
                 <span class="btn-text">Disparar Leitura</span>
             </button>
              
              <div id="data-acquisition-section">
-                <div class="collapsible-section">
+                 <div class="collapsible-section">
                     <div class="collapsible-header" data-target="chart-content">
                         <h2 style="margin: 0;">Gráfico de Níveis</h2>
                         <span class="arrow">▼</span>
@@ -47,6 +46,7 @@
                         <div id="chart-container">
                             <canvas id="main-chart"></canvas>
                         </div>
+                        <p id="reading-rate-display" class="chart-info-text" style="display:none;"></p>
                     </div>
                 </div>
 
@@ -144,12 +144,13 @@
                 <div class="config-item"><input type="range" id="data-decimation" min="1" max="100" value="10"></div>
             </div>
 
-            <button id="btn-advanced" style="width: 100%;">Avançado</button>
-            <div id="advanced-settings" style="display:none; margin-top: 15px; border: 1px solid #ccc; padding: 10px;">
-                <label for="samples-per-chunk">Tamanho do buffer de leituras (1-100)</label>
+            <button id="btn-edit-advanced" style="width: 100%; font-weight: bold;">Editar variáveis avançadas</button>
+
+            <div id="advanced-settings" style="margin-top: 15px; border: 1px solid #ccc; padding: 10px;">
+                <label for="samples-per-chunk">Tamanho do buffer de leituras (1-100):</label>
                 <input type="number" id="samples-per-chunk" min="1" max="100" value="10" disabled>
                 
-                <label for="sample-interval-us">Intervalo entre leituras (µs) (50-1000)</label>
+                <label for="sample-interval-us" style="margin-top: 10px;">Intervalo entre leituras (µs) (50-1000):</label>
                 <input type="number" id="sample-interval-us" min="50" max="1000" value="500" disabled>
             </div>
         </div>

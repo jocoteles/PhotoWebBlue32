@@ -1,4 +1,4 @@
-const CACHE_NAME = 'pwb32-cache-v9';
+const CACHE_NAME = 'pwb32-cache-v10';
 const urlsToCache = [
   '/',
   '/index.html',

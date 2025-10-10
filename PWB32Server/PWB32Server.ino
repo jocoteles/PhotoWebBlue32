@@ -1,6 +1,6 @@
 /**
  * @file PWB32Server.ino
- * @brief Aplicação para o sistema PhotoWebBlue32 (PWB32).
+ * @brief Aplicação para o sistema PhotoWebBluetooth32 (PWB32).
  */
 
 #include "EWBServer.h"
@@ -24,8 +24,8 @@ const uint16_t NOISE_AMPLITUDE = 100;  // Amplitude pico-a-pico do ruído (ex: 1
 // --- Configuração das Variáveis (Comunicação JSON) ---
 VariableConfig configurableVariables[] = {
   // Name                 Type      Int Val  Float Val  String Val  Min    Max      Limits?
-  {"samples_per_chunk",   TYPE_INT, 20,      0.0f,      "",         1,     100,     true},
-  {"sample_interval_us",  TYPE_INT, 250,     0.0f,      "",         50,    1000,    true},
+  {"samples_per_chunk",   TYPE_INT, 10,      0.0f,      "",         1,     100,     true},
+  {"sample_interval_us",  TYPE_INT, 500,     0.0f,      "",         50,    1000,    true},
   {"acquisition_mode",    TYPE_INT, 0,       0.0f,      "",         0,     3,       true},
   {"trigger_c1",          TYPE_INT, 2048,    0.0f,      "",         0,     4095,    true},
   {"trigger_c2",          TYPE_INT, 2048,    0.0f,      "",         0,     4095,    true},

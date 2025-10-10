@@ -28,11 +28,29 @@ button { background-color: #3498db; color: white; border: none; padding: 10px 15
 button:hover { background-color: #2980b9; }
 button:disabled { background-color: #bdc3c7; cursor: not-allowed; }
 
-.status { text-align: center; font-weight: bold; margin: 20px 0; padding: 10px; border-radius: 5px; }
+.status { 
+    text-align: center; 
+    font-weight: bold; 
+    margin: 20px 0; 
+    padding: 10px; 
+    border-radius: 0px; /* Cantos retos */
+}
 .status.disconnected { background-color: #e74c3c; color: white; }
 .status.connected { background-color: #2ecc71; color: white; }
 
 .control-group { margin-bottom: 20px; border-bottom: 1px solid #eee; padding-bottom: 15px; }
+
+/* Novo estilo para o container dos botões de conexão */
+.connection-buttons {
+    display: flex;
+    justify-content: center;
+    gap: 10px; /* Espaço entre os botões */
+}
+.connection-buttons button {
+    flex: 1; /* Faz os botões ocuparem o mesmo espaço */
+    max-width: 200px; /* Define uma largura máxima para não ficarem muito grandes */
+}
+
 label { display: block; margin-bottom: 8px; font-weight: bold; }
 input[type="range"], input[type="number"], input[type="text"], select { width: 100%; box-sizing: border-box; padding: 8px; }
 
@@ -195,4 +213,12 @@ button:hover:not(:disabled) { filter: brightness(0.9); }
     to {
         transform: rotate(360deg);
     }
+}
+
+.chart-info-text {
+    text-align: center;
+    font-size: 0.9em; /* Ligeiramente menor que o texto normal */
+    color: #555;       /* Cinza escuro, não preto */
+    margin-top: 5px;
+    margin-bottom: 0px;
 }

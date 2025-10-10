@@ -68,10 +68,24 @@ document.addEventListener('DOMContentLoaded', () => {
     const inputDataDecimation = document.getElementById('data-decimation');
 
     if (!navigator.bluetooth) {
-        statusBar.textContent = 'Web Bluetooth não suportado. Use Chrome/Edge.';
-        statusBar.className = 'status disconnected';
-        btnConnect.disabled = true;
-        return;
+        const divConexao = document.getElementById('div-conexao');
+        const mainContainer = document.querySelector('.main-container');
+        
+        const errorMessageHTML = `
+            <div class="status disconnected" style="border-radius: 0; text-align: left; padding: 15px;">
+                <h2 style="margin-top:0; text-align:center;">Navegador Incompatível</h2>
+                <p>A API Web Bluetooth não está disponível. Para usar esta aplicação, por favor, utilize um dos seguintes navegadores:</p>
+                <ul>
+                    <li><b>Google Chrome</b> ou <b>Microsoft Edge</b> no Windows, macOS, Linux ou Android.</li>
+                    <li><b>Opera</b> no Windows, macOS ou Android.</li>
+                </ul>
+                <p><b>Atenção:</b> Em desktops, pode ser necessário habilitar a flag <code>chrome://flags/#enable-experimental-web-platform-features</code> no Chrome/Edge.</p>
+                <p>O Web Bluetooth não é suportado nos principais navegadores iOS (iPhone/iPad). Mas você pode tentar o aplicativo Bluefy – Web BLE Browser.</p>
+            </div>
+        `;
+        // Esconde os outros botões e mostra a página de conexão com o erro
+        mainContainer.innerHTML = '<h1>PhotoWebBluetooth32</h1>' + errorMessageHTML;
+        return; // Impede o resto do script de rodar
     }
     
     function switchPage(pageName) {
@@ -90,13 +104,11 @@ document.addEventListener('DOMContentLoaded', () => {
         acquisitionModeSelect.disabled = !connected;
 
         if (connected) {
-            statusBar.textContent = 'Conectado';
+            statusBar.textContent = `Conectado a ${ewbClient.device.name || 'N/A'}`;
             statusBar.className = 'status connected';
-            deviceNameDisplay.textContent = ewbClient.device.name || 'N/A';
         } else {
             statusBar.textContent = 'Desconectado';
             statusBar.className = 'status disconnected';
-            deviceNameDisplay.textContent = 'Nenhum';
             if(isStreaming) stopReading();
         }
     }
@@ -117,10 +129,16 @@ document.addEventListener('DOMContentLoaded', () => {
         allEvents = [];
         eventCounter = 0;
         isStreaming = true;
-        
+
+        document.getElementById('reading-rate-display').style.display = 'none';
+
         eventsTableBody.innerHTML = '<tr><td colspan="4">Adquirindo dados...</td></tr>';
         
-        // Modifique esta linha
+        if (currentAcquisitionMode === 0 || currentAcquisitionMode === 2) {
+            const chartContent = document.getElementById('chart-content');
+            chartContent.innerHTML = '<div style="text-align:center; padding: 40px 10px;">Aguardando dados...</div>';
+        }
+
         btnTriggerReadingText.textContent = "Interromper Leitura"; 
         btnTriggerReading.classList.add('reading');
         channelsFieldset.disabled = true;
@@ -138,12 +156,13 @@ document.addEventListener('DOMContentLoaded', () => {
         clearTimeout(maxAcquisitionTimer);
         await ewbClient.stopStream();
 
-        // Modifique esta linha
         btnTriggerReadingText.textContent = "Disparar Leitura";
         btnTriggerReading.classList.remove('reading');
         channelsFieldset.disabled = false;
         
         if (currentAcquisitionMode === 0 || currentAcquisitionMode === 2) {
+            const chartContent = document.getElementById('chart-content');
+            chartContent.innerHTML = `<div id="chart-container" style="position: relative; height: var(--chart-height); width: 100%;"><canvas id="main-chart"></canvas></div><p id="reading-rate-display" class="chart-info-text" style="display:none;"></p>`;
             processAndDisplayData();
         } else {
             if (allEvents.length === 0) {
@@ -202,7 +221,31 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function processAndDisplayData() {
         analysisControls.style.display = 'grid';        
-        saveControls.style.display = 'grid';        
+        saveControls.style.display = 'grid';     
+        
+        // --- LÓGICA PARA CALCULAR E EXIBIR A TAXA DE LEITURA ---
+        const readingRateDisplay = document.getElementById('reading-rate-display');
+        const isStreamingMode = currentAcquisitionMode === 0 || currentAcquisitionMode === 2;
+
+        if (isStreamingMode && allReadings.length > 1) {
+            // Pega o tempo da primeira e da última leitura em milissegundos
+            const firstReadingTime = allReadings[0].time_ms;
+            const lastReadingTime = allReadings[allReadings.length - 1].time_ms;
+            const durationInSeconds = (lastReadingTime - firstReadingTime) / 1000;
+
+            // Evita divisão por zero se a duração for muito curta
+            if (durationInSeconds > 0) {
+                const rate = allReadings.length / durationInSeconds;
+                readingRateDisplay.textContent = `Taxa de leitura: ${rate.toFixed(0)} aquisições/s`;
+                readingRateDisplay.style.display = 'block'; // Mostra o elemento
+            } else {
+                readingRateDisplay.style.display = 'none'; // Oculta se não for possível calcular
+            }
+        } else {
+            readingRateDisplay.style.display = 'none'; // Oculta se não for modo streaming ou não houver dados
+        }
+        // --- FIM DA LÓGICA DE TAXA DE LEITURA ---
+
         renderChart();
         rebuildTimeTable();
     }
@@ -626,36 +669,19 @@ document.addEventListener('DOMContentLoaded', () => {
     inputMaxAcquisitionTime.addEventListener('input', (e) => { document.getElementById('max-acquisition-value').textContent = e.target.value; });
     inputDataDecimation.addEventListener('input', (e) => { document.getElementById('decimation-value').textContent = e.target.value; if (!isStreaming && allReadings.length > 0) renderChart(); });
 
-    let advancedUnlocked = false;
+    // Pegamos a referência para o novo botão
+    const btnEditAdvanced = document.getElementById('btn-edit-advanced');
 
-    btnAdvanced.addEventListener('click', () => {
-        const pass = prompt("Digite a senha de administrador:", "");
-        if (pass === "bolt") {
-            advancedUnlocked = true;
-            advancedSettingsDiv.style.display = 'block';
-            advancedSettingsDiv.querySelectorAll('input').forEach(inp => inp.disabled = false);
-        } else if (pass !== null) {
-            alert("Senha incorreta.");
-        }
-    });
-
+    // Função para enviar os dados (pode já existir, mantenha-a)
     const sendAdvancedSetting = (key, value) => {
         if (!isConnected) {
             alert('Conecte ao dispositivo primeiro.');
             return;
         }
-        if (!advancedUnlocked) {
-            alert('Insira a senha de administrador para alterar variáveis avançadas.');
-            return;
-        }
-
         ewbClient.setVariables({ [key]: value })
             .then(() => {
                 console.log(`${key} atualizado para ${value}`);
                 alert(`Variável "${key}" atualizada com sucesso.`);
-
-                advancedUnlocked = false;
-                advancedSettingsDiv.querySelectorAll('input').forEach(inp => inp.disabled = true);
             })
             .catch(err => {
                 console.error(`Falha ao atualizar ${key}`, err);
@@ -663,8 +689,38 @@ document.addEventListener('DOMContentLoaded', () => {
             });
     };
 
-    inputSamplesPerChunk.addEventListener('change', (e) => sendAdvancedSetting('samples_per_chunk', parseInt(e.target.value, 10)));
-    inputSampleIntervalUs.addEventListener('change', (e) => sendAdvancedSetting('sample_interval_us', parseInt(e.target.value, 10)));
+    // Evento de clique no botão "Editar variáveis avançadas"
+    btnEditAdvanced.addEventListener('click', () => {
+        const pass = prompt("Digite a senha de administrador para editar:", "");
+        if (pass === ADVANCED_PASS) {
+            // Se a senha estiver correta, habilita os dois campos
+            inputSamplesPerChunk.disabled = false;
+            inputSampleIntervalUs.disabled = false;
+            // Foca no primeiro campo para facilitar a edição
+            inputSamplesPerChunk.focus();
+        } else if (pass !== null) {
+            alert("Senha incorreta.");
+        }
+    });
+
+    // Função que será chamada quando o valor de QUALQUER campo avançado for alterado
+    const handleAdvancedValueChange = (event) => {
+        // Identifica qual campo foi alterado e pega seu valor
+        const key = event.target.id === 'samples-per-chunk' ? 'samples_per_chunk' : 'sample_interval_us';
+        const value = parseInt(event.target.value, 10);
+
+        // Envia a nova configuração
+        sendAdvancedSetting(key, value);
+
+        // Bloqueia novamente os dois campos
+        inputSamplesPerChunk.disabled = true;
+        inputSampleIntervalUs.disabled = true;
+    };
+
+    // Adiciona o "ouvinte" de evento 'change' para os dois campos.
+    // O evento 'change' é disparado quando o usuário altera o valor e clica fora do campo.
+    inputSamplesPerChunk.addEventListener('change', handleAdvancedValueChange);
+    inputSampleIntervalUs.addEventListener('change', handleAdvancedValueChange);
 
     document.querySelectorAll('.collapsible-header').forEach(header => {
         header.addEventListener('click', () => {

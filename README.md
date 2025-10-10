@@ -1,6 +1,6 @@
-# PhotoWebBlue32 (PWB32)
+# PhotoWebBluetooth32 (PWB32)
 
-PhotoWebBlue32 é um sistema photogate de seis canais, de baixo custo e alta performance, projetado para laboratórios de ensino de Física. Ele utiliza um microcontrolador ESP32 para realizar a aquisição de dados e os transmite via Bluetooth para uma Progressive Web App (PWA), que serve como interface de controle e visualização.
+PhotoWebBluetooth32 é um sistema photogate de seis canais, de baixo custo e alta performance, projetado para laboratórios de ensino de Física. Ele utiliza um microcontrolador ESP32 para realizar a aquisição de dados e os transmite via Bluetooth para uma Progressive Web App (PWA), que serve como interface de controle e visualização.
 
 O projeto é uma aplicação específica construída sobre a filosofia do template [ESP32WebBluetooth](https://github.com/jocoteles/ESP32WebBluetooth), priorizando clareza e facilidade de modificação para fins educacionais.
 
@@ -57,7 +57,7 @@ A PWA é a interface do usuário, acessível por qualquer navegador moderno com 
     *   Biblioteca **ArduinoJson** (instalada via Library Manager do Arduino IDE).
 3.  **PWA (Cliente):**
     *   Um navegador com suporte a Web Bluetooth (Chrome, Edge, Opera em Desktop e Android).
-    *   Um servidor web para hospedar os arquivos da PWA. Este projeto já se encontra [hospedado como uma GitHub Pages](https://jocoteles.github.io/PhotoWebBlue32/).
+    *   Um servidor web para hospedar os arquivos da PWA. Este projeto já se encontra [hospedado como uma GitHub Pages](https://jocoteles.github.io/PhotoWebBluetooth32/).
 
 ### Passos
 
@@ -72,7 +72,7 @@ A PWA é a interface do usuário, acessível por qualquer navegador moderno com 
 
 #### 2. Hospedar a PWA
 
-Este passo é necessário apenas caso queira desenvolver o seu próprio aplicativo baseado neste projeto. Caso contrário, basta usar a [aplicação pronta](https://jocoteles.github.io/PhotoWebBlue32/).
+Este passo é necessário apenas caso queira desenvolver o seu próprio aplicativo baseado neste projeto. Caso contrário, basta usar a [aplicação pronta](https://jocoteles.github.io/PhotoWebBluetooth32/).
 
 1.  Crie um novo repositório no GitHub.
 2.  Envie todos os arquivos da raiz do projeto ( `index.html`, `main.js`, etc.) para o repositório.
@@ -84,7 +84,7 @@ Este passo é necessário apenas caso queira desenvolver o seu próprio aplicati
 
 ## Como Usar o Sistema
 
-1.  Ligue o seu kit PhotoWebBlue32.
+1.  Ligue o seu kit PhotoWebBluetooth32.
 2.  No seu computador ou smartphone Android, abra o Google Chrome e navegue para o URL da sua PWA.
 3.  Na aba **[Conexão]**, clique em **"Conectar"**. Selecione o dispositivo e emparelhe. O nome do dispositivo conectado aparecerá na tela.
 4.  Vá para a aba **[Config]** e escolha o **Modo de Aquisição** desejado no menu.
