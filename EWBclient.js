@@ -5,10 +5,10 @@
  */
 
 // UUIDs devem ser idênticos aos definidos no firmware do ESP32
-const EWB_SERVICE_UUID = "4fafc201-1fb5-459e-8fcc-c5c9c331914b";
-const JSON_VARS_CHAR_UUID = "beb5483e-36e1-4688-b7f5-ea07361b26a8";
-const STREAM_DATA_CHAR_UUID = "82b934b0-a02c-4fb5-a818-a35752697d57";
-const STREAM_CONTROL_CHAR_UUID = "c8a4a259-4203-48e8-b39f-5a8b71d601b0";
+const EWB_SERVICE_UUID = "287f2128-568f-46a5-9231-25a01f2fc48b";
+const JSON_VARS_CHAR_UUID = "c9f1b2cf-11de-4d3c-a05a-27a4490e1b47";
+const STREAM_DATA_CHAR_UUID = "c188ecce-30e4-4853-9ea8-b46b2d6012e9";
+const STREAM_CONTROL_CHAR_UUID = "f544c35a-b6b8-49dd-8087-ccb1a8b4885b";
 
 class EWBClient {
     constructor() {
